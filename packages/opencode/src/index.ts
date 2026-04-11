@@ -102,10 +102,12 @@ const cli = yargs(args)
     Heap.start()
 
     const staging = process.execPath + ".new"
+    const backup = process.execPath + ".old"
     try {
       await fs.access(staging)
-      await fs.copyFile(staging, process.execPath)
-      try { await fs.unlink(staging) } catch {}
+      await fs.rename(process.execPath, backup)
+      await fs.rename(staging, process.execPath)
+      try { await fs.unlink(backup) } catch {}
       process.stderr.write("AnyCode update applied. Starting..." + EOL)
     } catch {}
 
