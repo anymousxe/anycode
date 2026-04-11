@@ -37,6 +37,7 @@ import { errorMessage } from "./util/error"
 import { PluginCommand } from "./cli/cmd/plug"
 import { Heap } from "./cli/heap"
 import { drizzle } from "drizzle-orm/bun-sqlite"
+import fs from "fs/promises"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -99,6 +100,14 @@ const cli = yargs(args)
     })
 
     Heap.start()
+
+    const staging = process.execPath + ".new"
+    try {
+      await fs.access(staging)
+      await fs.copyFile(staging, process.execPath)
+      try { await fs.unlink(staging) } catch {}
+      process.stderr.write("AnyCode update applied. Starting..." + EOL)
+    } catch {}
 
     process.env.AGENT = "1"
     process.env.OPENCODE = "1"

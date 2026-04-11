@@ -4,7 +4,6 @@ import { useTheme } from "@tui/context/theme"
 import { useSDK } from "@tui/context/sdk"
 import { useDialog } from "@tui/ui/dialog"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
-import { DialogConfirm } from "@tui/ui/dialog-confirm"
 import { DialogAlert } from "@tui/ui/dialog-alert"
 import { useToast } from "@tui/ui/toast"
 import { createMemo, For, Show, createSignal } from "solid-js"
@@ -70,7 +69,7 @@ export function ChatNav() {
   const local = useLocal()
   const toast = useToast()
 
-  const [updateStatus, setUpdateStatus] = createSignal<"idle" | "checking" | "up-to-date" | "available">("idle")
+  const [updateStatus, setUpdateStatus] = createSignal<"idle" | "checking" | "up-to-date" | "available" | "downloading">("idle")
   const [latestVersion, setLatestVersion] = createSignal("")
 
   const checkForUpdates = async () => {
@@ -91,13 +90,28 @@ export function ChatNav() {
   }
 
   const doUpdate = async (target: string) => {
-    toast.show({ variant: "info", message: `Updating to v${target}...`, duration: 30000 })
-    const result = await sdk.client.global.upgrade({ target })
-    if (result.error || !result.data?.success) {
-      toast.show({ variant: "error", title: "Update Failed", message: "Update failed", duration: 10000 })
-      return
+    setUpdateStatus("downloading" as any)
+    try {
+      const arch = process.arch === "arm64" ? "arm64" : "x64"
+      const platform = process.platform === "darwin"
+        ? `anycode-darwin-${arch}`
+        : process.platform === "linux"
+          ? `anycode-linux-x64`
+          : `anycode-windows-x64`
+      const ext = process.platform === "win32" ? ".exe" : ""
+      const url = `https://github.com/anymousxe/anycode/releases/download/v${target}/${platform}${ext}`
+      const res = await fetch(url, { redirect: "follow" })
+      if (!res.ok) throw new Error(`Download failed: ${res.status}`)
+      const buf = Buffer.from(await res.arrayBuffer())
+      const stagingPath = process.execPath + ".new"
+      const fs = await import("fs/promises")
+      await fs.writeFile(stagingPath, buf, { mode: 0o755 })
+      await DialogAlert.show(dialog, "Update Ready", `AnyCode v${target} downloaded. Restart anycode to apply the update.`)
+      setUpdateStatus("idle")
+    } catch {
+      toast.show({ variant: "error", message: "Download failed", duration: 5000 })
+      setUpdateStatus("available")
     }
-    await DialogAlert.show(dialog, "Update Complete", `Successfully updated to AnyCode v${result.data.version}. Please restart the application.`)
   }
 
   const openSettings = () => {
@@ -150,6 +164,9 @@ export function ChatNav() {
             <text fg={theme.warning}>↑ v{latestVersion()} available</text>
             <text fg={theme.primary} onMouseUp={() => doUpdate(latestVersion())}><b>[Update Now]</b></text>
           </box>
+        </Show>
+        <Show when={updateStatus() === "downloading"}>
+          <text fg={theme.textMuted}>Downloading...</text>
         </Show>
         <text fg={theme.textMuted}> </text>
         <text fg={theme.textMuted}>Config: ~/.config/anycode/tui.json</text>

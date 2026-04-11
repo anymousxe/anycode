@@ -941,29 +941,38 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
 
     toast.show({
       variant: "info",
-      message: `Updating to v${version}...`,
+      message: `Downloading v${version}...`,
       duration: 30000,
     })
 
-    const result = await sdk.client.global.upgrade({ target: version })
+    try {
+      const arch = process.arch === "arm64" ? "arm64" : "x64"
+      const platform = process.platform === "darwin"
+        ? `anycode-darwin-${arch}`
+        : process.platform === "linux"
+          ? `anycode-linux-x64`
+          : `anycode-windows-x64`
+      const ext = process.platform === "win32" ? ".exe" : ""
+      const url = `https://github.com/anymousxe/anycode/releases/download/v${version}/${platform}${ext}`
+      const res = await fetch(url, { redirect: "follow" })
+      if (!res.ok) throw new Error(`Download failed: ${res.status}`)
+      const buf = Buffer.from(await res.arrayBuffer())
+      const fs = await import("fs/promises")
+      await fs.writeFile(process.execPath + ".new", buf, { mode: 0o755 })
 
-    if (result.error || !result.data?.success) {
+      await DialogAlert.show(
+        dialog,
+        "Update Ready",
+        `AnyCode v${version} downloaded. Restart anycode to apply the update.`,
+      )
+    } catch {
       toast.show({
         variant: "error",
         title: "Update Failed",
-        message: "Update failed",
+        message: "Failed to download update",
         duration: 10000,
       })
-      return
     }
-
-    await DialogAlert.show(
-      dialog,
-      "Update Complete",
-      `Successfully updated to AnyCode v${result.data.version}. Please restart the application.`,
-    )
-
-    exit()
   })
 
   const plugin = createMemo(() => {
