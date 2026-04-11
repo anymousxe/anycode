@@ -4,6 +4,44 @@ A terminal-based AI coding agent with persistent memory, custom modes, and auton
 
 ## Install
 
+### One-liner (macOS / Linux)
+
+```
+curl -fsSL https://raw.githubusercontent.com/anymousxe/anycode/main/install.sh | bash
+```
+
+### One-liner (Windows CMD)
+
+```
+curl -fsSL https://raw.githubusercontent.com/anymousxe/anycode/main/install.bat -o install.bat && install.bat
+```
+
+### One-liner (Windows PowerShell)
+
+```
+iwr -useb https://raw.githubusercontent.com/anymousxe/anycode/main/install.bat -outf install.bat; ./install.bat
+```
+
+### Bun
+
+```
+bunx anycode
+```
+
+### Winget
+
+```
+winget install anycode
+```
+
+### Scoop
+
+```
+scoop install anycode
+```
+
+### Build from source
+
 **Prerequisites:** [Bun](https://bun.sh) must be installed.
 
 ```
