@@ -5,6 +5,8 @@ import { makeRuntime } from "@/effect/run-service"
 import { withTransientReadRetry } from "@/util/effect-http-client"
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import path from "path"
+import os from "os"
+import fs from "fs/promises"
 import z from "zod"
 import { BusEvent } from "@/bus/bus-event"
 import { Flag } from "../flag/flag"
@@ -146,23 +148,38 @@ export namespace Installation {
 
         const upgradeCurl = Effect.fnUntraced(
           function* (target: string) {
-            const response = yield* httpOk.execute(HttpClientRequest.get("https://github.com/anymousxe/anycode/install"))
-            const body = yield* response.text
-            const bodyBytes = new TextEncoder().encode(body)
-            const proc = ChildProcess.make("bash", [], {
-              stdin: Stream.make(bodyBytes),
-              env: { VERSION: target },
-              extendEnv: true,
+            const arch = process.arch === "arm64" ? "arm64" : "x64"
+            const platform = process.platform === "darwin"
+              ? `anycode-darwin-${arch}`
+              : process.platform === "linux"
+                ? `anycode-linux-x64`
+                : `anycode-windows-x64`
+            const ext = process.platform === "win32" ? ".exe" : ""
+            const url = `https://github.com/anymousxe/anycode/releases/download/v${target}/${platform}${ext}`
+            const tmpDir = path.join(os.tmpdir(), `anycode-upgrade-${Date.now()}`)
+            const tmpFile = path.join(tmpDir, `anycode${ext}`)
+            const execPath = process.execPath
+            const backupPath = execPath + ".bak"
+
+            yield* Effect.promise(async () => {
+              const res = await fetch(url, { redirect: "follow" })
+              if (!res.ok) throw new Error(`Download failed: ${res.status} ${res.statusText}`)
+              const buf = Buffer.from(await res.arrayBuffer())
+              await fs.mkdir(tmpDir, { recursive: true })
+              await fs.writeFile(tmpFile, buf, { mode: 0o755 })
+              await fs.copyFile(execPath, backupPath)
+              try {
+                await fs.rename(tmpFile, execPath)
+              } catch {
+                await fs.copyFile(tmpFile, execPath)
+                try { await fs.unlink(tmpFile) } catch {}
+              }
+              try { await fs.unlink(backupPath) } catch {}
+              try { await fs.rmdir(tmpDir) } catch {}
             })
-            const handle = yield* spawner.spawn(proc)
-            const [stdout, stderr] = yield* Effect.all(
-              [Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr))],
-              { concurrency: 2 },
-            )
-            const code = yield* handle.exitCode
-            return { code, stdout, stderr }
+
+            return { code: 0 as ChildProcessSpawner.ExitCode, stdout: `Updated to v${target}`, stderr: "" }
           },
-          Effect.scoped,
           Effect.orDie,
         )
 
