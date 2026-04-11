@@ -4,12 +4,6 @@ A terminal-based AI coding agent with persistent memory, custom modes, and auton
 
 ## Install
 
-### One-liner (macOS / Linux)
-
-```
-curl -fsSL https://raw.githubusercontent.com/anymousxe/anycode/main/install.sh | bash
-```
-
 ### One-liner (Windows CMD)
 
 ```
@@ -22,16 +16,10 @@ curl -fsSL https://raw.githubusercontent.com/anymousxe/anycode/main/install.bat 
 iwr -useb https://raw.githubusercontent.com/anymousxe/anycode/main/install.bat -outf install.bat; ./install.bat
 ```
 
-### Bun
+### One-liner (macOS / Linux)
 
 ```
-bunx anycode
-```
-
-### Winget
-
-```
-winget install anycode
+curl -fsSL https://raw.githubusercontent.com/anymousxe/anycode/main/install.sh | bash
 ```
 
 ### Scoop
@@ -40,9 +28,15 @@ winget install anycode
 scoop install anycode
 ```
 
+### Winget
+
+```
+winget install anycode
+```
+
 ### Build from source
 
-**Prerequisites:** [Bun](https://bun.sh) must be installed.
+Requires [Bun](https://bun.sh).
 
 ```
 git clone https://github.com/anymousxe/anycode.git
@@ -52,23 +46,7 @@ cd packages/opencode
 bun run script/build.ts --single
 ```
 
-The binary will be at:
-
-```
-packages/opencode/dist/anycode-windows-x64/bin/anycode.exe
-```
-
-Copy it somewhere in your PATH:
-
-```
-copy packages\opencode\dist\anycode-windows-x64\bin\anycode.exe %USERPROFILE%\.local\bin\anycode.exe
-```
-
-Then just run:
-
-```
-anycode
-```
+Binary at `packages/opencode/dist/anycode-windows-x64/bin/anycode.exe` — copy it anywhere in your PATH.
 
 ## Features
 
