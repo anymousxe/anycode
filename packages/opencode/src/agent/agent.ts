@@ -47,7 +47,6 @@ export namespace Agent {
       prompt: z.string().optional(),
       options: z.record(z.string(), z.any()),
       steps: z.number().int().positive().optional(),
-      confirmRequired: z.boolean().optional(),
     })
     .meta({
       ref: "Agent",
@@ -168,7 +167,7 @@ export namespace Agent {
             },
             coding: {
               name: "coding",
-              description: "Minimal coding mode. Stripped-down UI, concise responses, pure code focus.",
+              description: "Minimal coding mode. Concise responses, pure code focus.",
               color: "#f59e0b",
               prompt: PROMPT_CODING,
               options: {},
@@ -184,7 +183,6 @@ export namespace Agent {
               ),
               mode: "primary",
               native: true,
-              confirmRequired: true,
             },
             general: {
               name: "general",

@@ -568,11 +568,8 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       keybind: "agent_cycle",
       category: "Agent",
       hidden: true,
-      onSelect: async () => {
-        local.agent.move(1, async () => {
-          const ok = await DialogConfirm.show(dialog, "Enter Coding Mode?", "This switches to a minimal CLI-style interface. Are you sure?")
-          if (ok) local.agent.set("coding")
-        })
+      onSelect: () => {
+        local.agent.move(1)
       },
     },
     {
@@ -581,11 +578,8 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       keybind: "agent_cycle_reverse",
       category: "Agent",
       hidden: true,
-      onSelect: async () => {
-        local.agent.move(-1, async () => {
-          const ok = await DialogConfirm.show(dialog, "Enter Coding Mode?", "This switches to a minimal CLI-style interface. Are you sure?")
-          if (ok) local.agent.set("coding")
-        })
+      onSelect: () => {
+        local.agent.move(-1)
       },
     },
     {

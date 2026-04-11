@@ -69,17 +69,14 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
             })
           setAgentStore("current", name)
         },
-        move(direction: 1 | -1, onConfirm?: () => void) {
+        move(direction: 1 | -1) {
           batch(() => {
             const enabled = agents().filter((x) => !hiddenModes().includes(x.name))
+            if (enabled.length === 0) return
             let next = enabled.findIndex((x) => x.name === agentStore.current) + direction
             if (next < 0) next = enabled.length - 1
             if (next >= enabled.length) next = 0
             const value = enabled[next]
-            if (value.name === "coding" && onConfirm) {
-              onConfirm()
-              return
-            }
             setAgentStore("current", value.name)
           })
         },

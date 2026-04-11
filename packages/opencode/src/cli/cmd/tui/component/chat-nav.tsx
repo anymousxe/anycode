@@ -6,8 +6,9 @@ import { useDialog } from "@tui/ui/dialog"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { createMemo, For, Show, createSignal } from "solid-js"
 import { Locale } from "@/util/locale"
+import { Memory } from "@/memory"
 import { Global } from "@/global"
-import path from "path"
+import { useLocal } from "@tui/context/local"
 
 export function ChatNav() {
   const sync = useSync()
@@ -63,20 +64,39 @@ export function ChatNav() {
   }
 
   const openSettings = () => {
-    const configPath = path.join(Global.Path.config, "tui.json")
-    const appConfigPath = path.join(Global.Path.config, "opencode.json")
+    const local = useLocal()
+    const allModes = ["build", "plan", "agent", "coding"]
+    const modeColors: Record<string, string> = {
+      build: theme.primary.toString(),
+      plan: theme.accent.toString(),
+      agent: theme.success.toString(),
+      coding: theme.warning.toString(),
+    }
     dialog.replace(() => (
       <box gap={1} paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
         <text fg={theme.text}><b>⚙ Settings</b></text>
-        <text fg={theme.textMuted}>Config files:</text>
-        <text fg={theme.primary}>{configPath}</text>
-        <text fg={theme.textMuted}>  keybinds & theme</text>
-        <text fg={theme.primary}>{appConfigPath}</text>
-        <text fg={theme.textMuted}>  providers & agents</text>
         <text fg={theme.textMuted}> </text>
-        <text fg={theme.textMuted}>Use /memory to view saved memories</text>
-        <text fg={theme.textMuted}>Use /prompt to set a custom system prompt</text>
-        <text fg={theme.textMuted}>Press Tab to cycle agent modes</text>
+        <text fg={theme.text}><b>Tab Modes</b></text>
+        <For each={allModes}>
+          {(name) => {
+            const active = createMemo(() => !local.agent.hiddenModes().includes(name))
+            return (
+              <box flexDirection="row" gap={1}>
+                <text
+                  fg={active() ? theme.success : theme.textMuted}
+                  onMouseUp={() => local.agent.toggleMode(name)}
+                >
+                  {active() ? "●" : "○"}
+                </text>
+                <text fg={modeColors[name] ?? theme.text}>{name}</text>
+                <text fg={theme.textMuted}>{active() ? "shown" : "hidden"}</text>
+              </box>
+            )
+          }}
+        </For>
+        <text fg={theme.textMuted}>Click ●/○ to toggle, at least one must stay on</text>
+        <text fg={theme.textMuted}> </text>
+        <text fg={theme.textMuted}>Config: ~/.config/anycode/tui.json</text>
         <text fg={theme.textMuted}>Press Esc to close</text>
       </box>
     ))
