@@ -946,14 +946,8 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
     })
 
     try {
-      const arch = process.arch === "arm64" ? "arm64" : "x64"
-      const platform = process.platform === "darwin"
-        ? `anycode-darwin-${arch}`
-        : process.platform === "linux"
-          ? `anycode-linux-x64`
-          : `anycode-windows-x64`
       const ext = process.platform === "win32" ? ".exe" : ""
-      const url = `https://github.com/anymousxe/anycode/releases/download/v${version}/${platform}${ext}`
+      const url = `https://github.com/anymousxe/anycode/releases/download/v${version}/anycode${ext}`
       const res = await fetch(url, { redirect: "follow" })
       if (!res.ok) throw new Error(`Download failed: ${res.status}`)
       const buf = Buffer.from(await res.arrayBuffer())

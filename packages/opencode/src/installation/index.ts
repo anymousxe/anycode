@@ -146,16 +146,10 @@ export namespace Installation {
           return "anycode"
         })
 
-        const upgradeCurl = Effect.fnUntraced(
+         const upgradeCurl = Effect.fnUntraced(
           function* (target: string) {
-            const arch = process.arch === "arm64" ? "arm64" : "x64"
-            const platform = process.platform === "darwin"
-              ? `anycode-darwin-${arch}`
-              : process.platform === "linux"
-                ? `anycode-linux-x64`
-                : `anycode-windows-x64`
             const ext = process.platform === "win32" ? ".exe" : ""
-            const url = `https://github.com/anymousxe/anycode/releases/download/v${target}/${platform}${ext}`
+            const url = `https://github.com/anymousxe/anycode/releases/download/v${target}/anycode${ext}`
             const tmpDir = path.join(os.tmpdir(), `anycode-upgrade-${Date.now()}`)
             const tmpFile = path.join(tmpDir, `anycode${ext}`)
             const execPath = process.execPath
