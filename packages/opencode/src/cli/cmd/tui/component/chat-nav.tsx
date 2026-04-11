@@ -4,10 +4,14 @@ import { useTheme } from "@tui/context/theme"
 import { useSDK } from "@tui/context/sdk"
 import { useDialog } from "@tui/ui/dialog"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
+import { DialogConfirm } from "@tui/ui/dialog-confirm"
+import { DialogAlert } from "@tui/ui/dialog-alert"
+import { useToast } from "@tui/ui/toast"
 import { createMemo, For, Show, createSignal } from "solid-js"
 import { Locale } from "@/util/locale"
 import { Memory } from "@/memory"
 import { Global } from "@/global"
+import { Installation } from "@/installation"
 import { useLocal } from "@tui/context/local"
 
 export function ChatNav() {
@@ -64,6 +68,37 @@ export function ChatNav() {
   }
 
   const local = useLocal()
+  const toast = useToast()
+
+  const [updateStatus, setUpdateStatus] = createSignal<"idle" | "checking" | "up-to-date" | "available">("idle")
+  const [latestVersion, setLatestVersion] = createSignal("")
+
+  const checkForUpdates = async () => {
+    setUpdateStatus("checking")
+    try {
+      const method = await Installation.method()
+      const latest = await Installation.latest(method)
+      if (Installation.VERSION === latest) {
+        setUpdateStatus("up-to-date")
+      } else {
+        setUpdateStatus("available")
+        setLatestVersion(latest)
+      }
+    } catch {
+      toast.show({ variant: "error", message: "Failed to check for updates", duration: 3000 })
+      setUpdateStatus("idle")
+    }
+  }
+
+  const doUpdate = async (target: string) => {
+    toast.show({ variant: "info", message: `Updating to v${target}...`, duration: 30000 })
+    const result = await sdk.client.global.upgrade({ target })
+    if (result.error || !result.data?.success) {
+      toast.show({ variant: "error", title: "Update Failed", message: "Update failed", duration: 10000 })
+      return
+    }
+    await DialogAlert.show(dialog, "Update Complete", `Successfully updated to AnyCode v${result.data.version}. Please restart the application.`)
+  }
 
   const openSettings = () => {
     const allModes = ["build", "plan", "agent", "coding"]
@@ -96,6 +131,26 @@ export function ChatNav() {
           }}
         </For>
         <text fg={theme.textMuted}>Click ●/○ to toggle, at least one must stay on</text>
+        <text fg={theme.textMuted}> </text>
+        <text fg={theme.text}><b>Updates</b></text>
+        <box flexDirection="row" gap={1}>
+          <text fg={theme.text}>Current: v{Installation.VERSION}</text>
+        </box>
+        <Show when={updateStatus() === "idle"}>
+          <text fg={theme.primary} onMouseUp={checkForUpdates}><b>↻ Check for Updates</b></text>
+        </Show>
+        <Show when={updateStatus() === "checking"}>
+          <text fg={theme.textMuted}>Checking...</text>
+        </Show>
+        <Show when={updateStatus() === "up-to-date"}>
+          <text fg={theme.success}>✓ Up to date!</text>
+        </Show>
+        <Show when={updateStatus() === "available"}>
+          <box flexDirection="row" gap={1}>
+            <text fg={theme.warning}>↑ v{latestVersion()} available</text>
+            <text fg={theme.primary} onMouseUp={() => doUpdate(latestVersion())}><b>[Update Now]</b></text>
+          </box>
+        </Show>
         <text fg={theme.textMuted}> </text>
         <text fg={theme.textMuted}>Config: ~/.config/anycode/tui.json</text>
         <text fg={theme.textMuted}>Press Esc to close</text>
