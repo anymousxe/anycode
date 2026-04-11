@@ -151,13 +151,10 @@ const targets = singleFlag
         return false
       }
 
-      // When building for the current platform, prefer a single native binary by default.
-      // Baseline binaries require additional Bun artifacts and can be flaky to download.
       if (item.avx2 === false) {
         return baselineFlag
       }
 
-      // also skip abi-specific builds for the same reason
       if (item.abi !== undefined) {
         return false
       }
@@ -165,6 +162,12 @@ const targets = singleFlag
       return true
     })
   : allTargets
+
+const arm64Flag = process.env.ARM64 === "1"
+if (arm64Flag) {
+  targets.length = 0
+  targets.push(...allTargets.filter((item) => item.os === "win32" && item.arch === "arm64"))
+}
 
 await $`rm -rf dist`
 

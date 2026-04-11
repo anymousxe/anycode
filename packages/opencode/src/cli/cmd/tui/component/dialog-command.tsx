@@ -68,7 +68,7 @@ function init() {
     if (dialog.stack.length > 0) return
     const focused = renderer.currentFocusedRenderable
     const inPrompt = focused instanceof TextareaRenderable
-    if (inPrompt && evt.name !== "tab") return
+    if (inPrompt && evt.name !== "tab" && evt.name !== "escape") return
     for (const option of entries()) {
       if (!isEnabled(option)) continue
       if (option.keybind && keybind.match(option.keybind, evt)) {
