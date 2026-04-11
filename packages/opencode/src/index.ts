@@ -102,13 +102,44 @@ const cli = yargs(args)
     Heap.start()
 
     const staging = process.execPath + ".new"
-    const backup = process.execPath + ".old"
+    const applyScript = process.execPath.replace(/\.exe$/, "-apply.bat")
     try {
       await fs.access(staging)
-      await fs.rename(process.execPath, backup)
-      await fs.rename(staging, process.execPath)
-      try { await fs.unlink(backup) } catch {}
-      process.stderr.write("AnyCode update applied. Starting..." + EOL)
+    } catch { /* no update pending */ }
+    try {
+      if (process.platform === "win32") {
+        const pid = process.pid
+        const exe = process.execPath
+        const script = [
+          `@echo off`,
+          `echo AnyCode: Applying update...`,
+          `:wait`,
+          `tasklist /FI "PID eq ${pid}" 2>NUL | find "${pid}" >NUL`,
+          `if %ERRORLEVEL%==0 (`,
+          `  timeout /T 1 /NOBREAK >NUL`,
+          `  goto wait`,
+          `)`,
+          `copy /Y "${staging}" "${exe}"`,
+          `if %ERRORLEVEL%==0 (`,
+          `  del "${staging}"`,
+          `  echo Update applied successfully.`,
+          `  start "" "${exe}"`,
+          `) else (`,
+          `  echo Update failed.`,
+          `)`,
+          `del "%~f0"`,
+        ].join("\r\n")
+        await fs.writeFile(applyScript, script)
+        const child = Bun.spawn(["cmd", "/c", applyScript], { detached: true, stdio: ["ignore", "ignore", "ignore"] as any })
+        child.unref()
+        process.stderr.write("AnyCode update applying. Exiting to apply..." + EOL)
+        process.exit(0)
+      } else {
+        await fs.rename(process.execPath, process.execPath + ".old")
+        await fs.rename(staging, process.execPath)
+        try { await fs.unlink(process.execPath + ".old") } catch {}
+        process.stderr.write("AnyCode update applied. Starting..." + EOL)
+      }
     } catch {}
 
     process.env.AGENT = "1"
