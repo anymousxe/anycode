@@ -14,6 +14,10 @@ import { useKeyboard } from "@opentui/solid"
 import { Clipboard } from "@tui/util/clipboard"
 import { useToast } from "../ui/toast"
 import { isConsoleManagedProvider } from "@tui/util/provider-origin"
+import { Config } from "@/config/config"
+import fs from "fs"
+import path from "path"
+import { Global } from "@/global"
 
 const PROVIDER_PRIORITY: Record<string, number> = {
   opencode: 0,
@@ -31,7 +35,7 @@ export function createDialogProviderOptions() {
   const toast = useToast()
   const { theme } = useTheme()
   const options = createMemo(() => {
-    return pipe(
+    const builtIn = pipe(
       sync.data.provider_next.all,
       sortBy((x) => PROVIDER_PRIORITY[x.id] ?? 99),
       map((provider) => {
@@ -139,6 +143,75 @@ export function createDialogProviderOptions() {
         }
       }),
     )
+
+    return [
+      ...builtIn,
+      {
+        title: "Custom Provider",
+        value: "__custom__",
+        description: "OpenAI-compatible endpoint with custom base URL",
+        category: "Custom",
+        async onSelect() {
+          const providerName = await DialogPrompt.show(dialog, "Provider Name", {
+            placeholder: "e.g. my-gpt54",
+          })
+          if (!providerName) return
+
+          const baseURL = await DialogPrompt.show(dialog, "Base URL", {
+            placeholder: "e.g. https://api.example.com/v1",
+          })
+          if (!baseURL) return
+
+          const apiKey = await DialogPrompt.show(dialog, "API Key", {
+            placeholder: "sk-...",
+          })
+          if (!apiKey) return
+
+          const modelName = await DialogPrompt.show(dialog, "Model Name", {
+            placeholder: "e.g. gpt-5.4",
+          })
+          if (!modelName) return
+
+          const configPath = path.join(Global.Path.config, "opencode.json")
+          let config: any = {}
+          try {
+            config = JSON.parse(fs.readFileSync(configPath, "utf-8"))
+          } catch {}
+          if (!config.provider) config.provider = {}
+          config.provider[providerName] = {
+            name: providerName,
+            env: [`${providerName.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_API_KEY`],
+            options: {
+              baseURL,
+              apiKey,
+            },
+            models: {
+              [modelName]: {
+                name: modelName,
+                tool_call: true,
+                temperature: true,
+                limit: { context: 128000, output: 16384 },
+              },
+            },
+          }
+          fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
+
+          await sdk.client.auth.set({
+            providerID: providerName,
+            auth: {
+              type: "api",
+              key: apiKey,
+            },
+          })
+
+          await sdk.client.instance.dispose()
+          await sync.bootstrap()
+
+          toast.show({ message: `Custom provider "${providerName}" added! Select it from the model picker.`, variant: "success" })
+          dialog.clear()
+        },
+      },
+    ]
   })
   return options
 }
