@@ -52,12 +52,15 @@ export namespace Log {
   export function file() {
     return logpath
   }
+  let initialized = false
   let write = (msg: any) => {
+    if (!initialized) return 0
     process.stderr.write(msg)
     return msg.length
   }
 
   export async function init(options: Options) {
+    initialized = true
     if (options.level) level = options.level
     cleanup(Global.Path.log)
     if (options.print) return
