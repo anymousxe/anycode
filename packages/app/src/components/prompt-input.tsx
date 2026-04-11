@@ -1105,15 +1105,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   })
 
   const handleKeyDown = (event: KeyboardEvent) => {
-    const mod = event.ctrlKey || event.metaKey
-    const allowBubble =
-      (mod && event.shiftKey && event.key.toLowerCase() === "p") ||
-      (mod && event.key.toLowerCase() === "j") ||
-      event.key === "Tab"
-    if (!allowBubble) {
-      event.stopPropagation()
-    }
-
     if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "u") {
       event.preventDefault()
       if (store.mode !== "normal") return

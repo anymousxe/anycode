@@ -1804,11 +1804,11 @@ export default function Layout(props: ParentProps) {
   )
 
   createEffect(() => {
-    const sidebarWidth = layout.sidebar.opened() ? layout.sidebar.width() : 64
+    const sidebarWidth = layout.sidebar.opened() ? layout.sidebar.width() : 48
     document.documentElement.style.setProperty("--dialog-left-margin", `${sidebarWidth}px`)
   })
 
-  const side = createMemo(() => layout.sidebar.opened() ? Math.max(layout.sidebar.width(), 244) : 64)
+  const side = createMemo(() => Math.max(layout.sidebar.width(), 244))
   const panel = createMemo(() => Math.max(side() - 64, 0))
 
   const loadedSessionDirs = new Set<string>()
@@ -2363,6 +2363,7 @@ export default function Layout(props: ParentProps) {
               aria-label={language.t("sidebar.nav.projectsAndSessions")}
               data-component="sidebar-nav-desktop"
               classList={{
+                "hidden xl:block": true,
                 "absolute inset-y-0 left-0": true,
                 "z-10": true,
               }}

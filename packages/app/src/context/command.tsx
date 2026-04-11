@@ -219,13 +219,10 @@ export function formatKeybind(config: string, t?: (key: KeyLabel) => string): st
   return IS_MAC ? parts.join("") : parts.join("+")
 }
 
-function isEditableTarget(target: EventTarget | HTMLElement | null) {
-  if (!target) return false
+function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false
   if (target.isContentEditable) return true
-  if (target.getAttribute("contenteditable") === "true") return true
   if (target.closest("[contenteditable='true']")) return true
-  if (target.closest("[contenteditable]")) return true
   if (target.closest("input, textarea, select")) return true
   return false
 }
@@ -364,12 +361,10 @@ export const { use: useCommand, provider: CommandProvider } = createSimpleContex
       const sig = signatureFromEvent(event)
       const isPalette = palette().has(sig)
       const option = keymap().get(sig)
+      const modified = event.ctrlKey || event.metaKey || event.altKey
       const isTab = event.key === "Tab"
 
-      if (isEditableTarget(event.target) && !isPalette && !isAllowedEditableKeybind(option?.id) && !isTab)
-        return
-
-      if (isEditableTarget(document.activeElement) && !isPalette && !isAllowedEditableKeybind(option?.id) && !isTab)
+      if (isEditableTarget(event.target) && !isPalette && !isAllowedEditableKeybind(option?.id) && !modified && !isTab)
         return
 
       if (isPalette) {

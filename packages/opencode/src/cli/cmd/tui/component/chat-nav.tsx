@@ -6,6 +6,9 @@ import { useDialog } from "@tui/ui/dialog"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { createMemo, For, Show, createSignal } from "solid-js"
 import { Locale } from "@/util/locale"
+import { Clipboard } from "@tui/util/clipboard"
+import { Global } from "@/global"
+import path from "path"
 
 export function ChatNav() {
   const sync = useSync()
@@ -60,6 +63,22 @@ export function ChatNav() {
     })
   }
 
+  const openSettings = () => {
+    const configPath = path.join(Global.Path.config, "tui.json")
+    Clipboard.copy(configPath).then(() => {
+      dialog.replace(() => (
+        <box gap={1} paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
+          <text fg={theme.text}><b>Settings</b></text>
+          <text fg={theme.textMuted}>Config path copied to clipboard:</text>
+          <text fg={theme.primary}>{configPath}</text>
+          <text fg={theme.textMuted}>Edit tui.json to change keybinds & theme</text>
+          <text fg={theme.textMuted}>Edit opencode.json for providers & agents</text>
+          <text fg={theme.textMuted}>Press Esc to close</text>
+        </box>
+      ))
+    })
+  }
+
   if (collapsed()) {
     return (
       <box
@@ -104,7 +123,7 @@ export function ChatNav() {
         <b>+ New chat</b>
       </text>
 
-      <scrollbox flexGrow={1} scrollAcceleration={1}>
+       <scrollbox flexGrow={1}>
         <box gap={0}>
           <For each={sessions()}>
             {(s) => {
@@ -114,7 +133,7 @@ export function ChatNav() {
               return (
                 <box flexDirection="row" gap={1} paddingBottom={0}>
                   <text
-                    fg={active() ? theme.success : theme.textDim}
+                    fg={active() ? theme.success : theme.textMuted}
                     onMouseUp={() => switchTo(s.id)}
                   >
                     {active() ? "●" : "○"}
@@ -127,12 +146,12 @@ export function ChatNav() {
                     {trunc}
                   </text>
                   <Show when={active()}>
-                    <text fg={theme.textDim} onMouseUp={() => rename(s.id)}>
+                    <text fg={theme.textMuted} onMouseUp={() => rename(s.id)}>
                       ✎
                     </text>
                   </Show>
                   <Show when={!active()}>
-                    <text fg={theme.textDim} onMouseUp={() => del(s.id)}>
+                    <text fg={theme.textMuted} onMouseUp={() => del(s.id)}>
                       ×
                     </text>
                   </Show>
@@ -146,8 +165,12 @@ export function ChatNav() {
         </box>
       </scrollbox>
 
-      <text fg={theme.textDim} paddingTop={1}>
-        {sessions().length} chat{sessions().length === 1 ? "" : "s"}
+      <text fg={theme.border}>──────────────────────</text>
+      <text
+        fg={theme.textMuted}
+        onMouseUp={openSettings}
+      >
+        ⚙ Settings
       </text>
     </box>
   )
