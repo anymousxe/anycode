@@ -4,23 +4,31 @@ A terminal-based AI coding agent with persistent memory, custom modes, and auton
 
 ## Install
 
-```bash
-# Build from source (recommended)
+**Prerequisites:** [Bun](https://bun.sh) must be installed.
+
+```
 git clone https://github.com/anymousxe/anycode.git
 cd anycode
 bun install
 cd packages/opencode
 bun run script/build.ts --single
+```
 
-# The binary lands at:
-# packages/opencode/dist/anycode-windows-x64/bin/anycode.exe
-# Copy it somewhere in your PATH, e.g.:
-# cp packages/opencode/dist/anycode-windows-x64/bin/anycode.exe ~/.local/bin/anycode.exe
+The binary will be at:
+
+```
+packages/opencode/dist/anycode-windows-x64/bin/anycode.exe
+```
+
+Copy it somewhere in your PATH:
+
+```
+copy packages\opencode\dist\anycode-windows-x64\bin\anycode.exe %USERPROFILE%\.local\bin\anycode.exe
 ```
 
 Then just run:
 
-```bash
+```
 anycode
 ```
 
