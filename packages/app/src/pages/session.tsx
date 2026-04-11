@@ -1003,7 +1003,9 @@ export default function Page() {
 
   const isEditableTarget = (target: EventTarget | null | undefined) => {
     if (!(target instanceof HTMLElement)) return false
-    return /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName) || target.isContentEditable
+    if (target.isContentEditable || target.getAttribute("contenteditable") === "true") return true
+    if (target.closest("[contenteditable='true']") || target.closest("[contenteditable]")) return true
+    return /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName)
   }
 
   const deepActiveElement = () => {
