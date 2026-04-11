@@ -1,6 +1,7 @@
 import z from "zod"
 import * as path from "path"
 import { Effect } from "effect"
+import { EffectLogger } from "@/effect/logger"
 import { Tool } from "./tool"
 import { Bus } from "../bus"
 import { FileWatcher } from "../file/watcher"
@@ -282,7 +283,7 @@ export const ApplyPatchTool = Tool.defineEffect(
       description: DESCRIPTION,
       parameters: PatchParams,
       async execute(params: z.infer<typeof PatchParams>, ctx) {
-        return Effect.runPromise(run(params, ctx).pipe(Effect.orDie))
+        return Effect.runPromise(run(params, ctx).pipe(Effect.orDie, Effect.provide(EffectLogger.layer)))
       },
     }
   }),

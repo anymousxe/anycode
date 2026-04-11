@@ -1,5 +1,6 @@
 import z from "zod"
 import { Effect, Scope } from "effect"
+import { EffectLogger } from "@/effect/logger"
 import { createReadStream } from "fs"
 import { open } from "fs/promises"
 import * as path from "path"
@@ -219,7 +220,7 @@ export const ReadTool = Tool.defineEffect(
       description: DESCRIPTION,
       parameters,
       async execute(params: z.infer<typeof parameters>, ctx) {
-        return Effect.runPromise(run(params, ctx).pipe(Effect.orDie))
+        return Effect.runPromise(run(params, ctx).pipe(Effect.orDie, Effect.provide(EffectLogger.layer)))
       },
     }
   }),

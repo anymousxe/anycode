@@ -7,8 +7,9 @@ import { MessageV2 } from "../session/message-v2"
 import { Agent } from "../agent/agent"
 import type { SessionPrompt } from "../session/prompt"
 import { Config } from "../config/config"
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { Log } from "@/util/log"
+import { EffectLogger } from "@/effect/logger"
 
 export interface TaskPromptOps {
   cancel(sessionID: SessionID): void
@@ -179,7 +180,7 @@ export const TaskTool = Tool.defineEffect(
       description: DESCRIPTION,
       parameters,
       async execute(params: z.infer<typeof parameters>, ctx) {
-        return Effect.runPromise(run(params, ctx))
+        return Effect.runPromise(run(params, ctx).pipe(Effect.provide(EffectLogger.layer)))
       },
     }
   }),
