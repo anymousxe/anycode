@@ -58,7 +58,7 @@ export namespace Installation {
 
   export const VERSION = version
   export const CHANNEL = channel
-  export const USER_AGENT = `opencode/${CHANNEL}/${VERSION}/${Flag.OPENCODE_CLIENT}`
+  export const USER_AGENT = `anycode/${CHANNEL}/${VERSION}/${Flag.OPENCODE_CLIENT}`
 
   export function isPreview() {
     return CHANNEL !== "latest"
@@ -220,7 +220,7 @@ export namespace Installation {
             return data.versions.stable
           }
 
-          if (detectedMethod === "npm" || detectedMethod === "bun" || detectedMethod === "pnpm") {
+          if (detectedMethod === "npm" || detectedMethod === "bun" || detectedMethod === "pnpm" || detectedMethod === "yarn") {
             const r = (yield* text(["npm", "config", "get", "registry"])).trim()
             const reg = r || "https://registry.npmjs.org"
             const registry = reg.endsWith("/") ? reg.slice(0, -1) : reg
@@ -270,6 +270,9 @@ export namespace Installation {
             case "npm":
               result = yield* run(["npm", "install", "-g", `opencode-ai@${target}`])
               break
+            case "yarn":
+              result = yield* run(["yarn", "global", "add", `opencode-ai@${target}`])
+              break
             case "pnpm":
               result = yield* run(["pnpm", "install", "-g", `opencode-ai@${target}`])
               break
@@ -302,7 +305,7 @@ export namespace Installation {
               result = yield* run(["choco", "upgrade", "opencode", `--version=${target}`, "-y"])
               break
             case "scoop":
-              result = yield* run(["scoop", "install", `opencode@${target}`])
+              result = yield* run(["scoop", "update", `opencode@${target}`])
               break
             default:
               return yield* new UpgradeFailedError({ stderr: `Unknown method: ${m}` })

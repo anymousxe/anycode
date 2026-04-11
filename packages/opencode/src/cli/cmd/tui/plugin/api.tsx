@@ -150,6 +150,16 @@ function stateApi(sync: ReturnType<typeof useSync>): TuiPluginApi["state"] {
       count() {
         return sync.data.session.length
       },
+      list() {
+        return sync.data.session.map((s) => ({
+          id: s.id,
+          title: s.title,
+          parentID: s.parentID ?? undefined,
+          createdAt: s.time.created,
+          updatedAt: s.time.updated,
+          share: s.share ? { url: s.share.url } : undefined,
+        }))
+      },
       diff(sessionID) {
         return sync.data.session_diff[sessionID] ?? []
       },

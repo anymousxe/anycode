@@ -274,6 +274,14 @@ export type TuiState = {
   readonly vcs: { branch?: string } | undefined
   session: {
     count: () => number
+    list: () => ReadonlyArray<{
+      id: string
+      title: string
+      parentID?: string
+      createdAt: number
+      updatedAt: number
+      share?: { url: string }
+    }>
     diff: (sessionID: string) => ReadonlyArray<TuiSidebarFileItem>
     todo: (sessionID: string) => ReadonlyArray<TuiSidebarTodoItem>
     messages: (sessionID: string) => ReadonlyArray<Message>

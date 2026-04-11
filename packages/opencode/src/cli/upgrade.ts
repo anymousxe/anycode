@@ -2,11 +2,17 @@ import { Bus } from "@/bus"
 import { Config } from "@/config/config"
 import { Flag } from "@/flag/flag"
 import { Installation } from "@/installation"
+import { Log } from "@/util/log"
+
+const log = Log.create({ service: "upgrade" })
 
 export async function upgrade() {
   const config = await Config.getGlobal()
   const method = await Installation.method()
-  const latest = await Installation.latest(method).catch(() => {})
+  const latest = await Installation.latest(method).catch((err) => {
+    log.error("failed to fetch latest version", { error: String(err) })
+    return undefined
+  })
   if (!latest) return
 
   if (Flag.OPENCODE_ALWAYS_NOTIFY_UPDATE) {
@@ -27,5 +33,7 @@ export async function upgrade() {
   if (method === "unknown") return
   await Installation.upgrade(method, latest)
     .then(() => Bus.publish(Installation.Event.Updated, { version: latest }))
-    .catch(() => {})
+    .catch((err) => {
+      log.error("auto-upgrade failed", { error: String(err) })
+    })
 }

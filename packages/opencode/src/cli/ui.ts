@@ -5,10 +5,9 @@ import { logo as glyphs } from "./logo"
 
 export namespace UI {
   const wordmark = [
-    `⠀                                ▄     `,
-    `█▀▀█ █▀▀█ █▀▀█ █▀▀▄ █▀▀▀ █▀▀█ █▀▀█ █▀▀█`,
-    `█  █ █  █ █▀▀▀ █  █ █    █  █ █  █ █▀▀▀`,
-    `▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀  ▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀`,
+    `     ▄▀▀▄ █▀▀▄ █  █ █▀▀▀ █▀▀█ █▀▀█ █▀▀█`,
+    `     █▀▀█ █  █ ▀▀█▀ █    █  █ █  █ █▀▀▀`,
+    `     ▀  ▀ ▀  ▀   ▀  ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀`,
   ]
 
   export const CancelledError = NamedError.create("UICancelledError", z.void())

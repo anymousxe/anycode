@@ -11,8 +11,9 @@ import {
   type Accessor,
   type ParentProps,
 } from "solid-js"
-import { useKeyboard } from "@opentui/solid"
+import { useKeyboard, useRenderer } from "@opentui/solid"
 import { useKeybind } from "@tui/context/keybind"
+import { TextareaRenderable } from "@opentui/core"
 
 type Context = ReturnType<typeof init>
 const ctx = createContext<Context>()
@@ -60,9 +61,13 @@ function init() {
   )
   const suspended = () => suspendCount() > 0
 
+  const renderer = useRenderer()
+
   useKeyboard((evt) => {
     if (suspended()) return
     if (dialog.stack.length > 0) return
+    const focused = renderer.currentFocusedRenderable
+    if (focused instanceof TextareaRenderable) return
     for (const option of entries()) {
       if (!isEnabled(option)) continue
       if (option.keybind && keybind.match(option.keybind, evt)) {
