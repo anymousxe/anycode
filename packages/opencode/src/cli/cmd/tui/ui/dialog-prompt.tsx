@@ -10,6 +10,7 @@ export type DialogPromptProps = {
   description?: () => JSX.Element
   placeholder?: string
   value?: string
+  height?: number
   busy?: boolean
   busyText?: string
   onConfirm?: (value: string) => void
@@ -76,7 +77,7 @@ export function DialogPrompt(props: DialogPromptProps) {
             if (props.busy) return
             props.onConfirm?.(textarea.plainText)
           }}
-          height={3}
+          height={props.height ?? 3}
           keyBindings={props.busy ? [] : [{ name: "return", action: "submit" }]}
           ref={(val: TextareaRenderable) => {
             textarea = val
@@ -103,7 +104,7 @@ export function DialogPrompt(props: DialogPromptProps) {
   )
 }
 
-DialogPrompt.show = (dialog: DialogContext, title: string, options?: Omit<DialogPromptProps, "title">) => {
+DialogPrompt.show = (dialog: DialogContext, title: string, options?: Omit<DialogPromptProps, "title" | "onConfirm" | "onCancel">) => {
   return new Promise<string | null>((resolve) => {
     dialog.replace(
       () => (

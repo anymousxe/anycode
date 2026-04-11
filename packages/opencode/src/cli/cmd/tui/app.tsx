@@ -13,6 +13,7 @@ import {
   onMount,
   batch,
   Show,
+  For,
   on,
 } from "solid-js"
 import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "./win32"
@@ -567,8 +568,24 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       keybind: "agent_cycle",
       category: "Agent",
       hidden: true,
-      onSelect: () => {
-        local.agent.move(1)
+      onSelect: async () => {
+        local.agent.move(1, async () => {
+          const ok = await DialogConfirm.show(dialog, "Enter Coding Mode?", "This switches to a minimal CLI-style interface. Are you sure?")
+          if (ok) local.agent.set("coding")
+        })
+      },
+    },
+    {
+      title: "Agent cycle reverse",
+      value: "agent.cycle_reverse",
+      keybind: "agent_cycle_reverse",
+      category: "Agent",
+      hidden: true,
+      onSelect: async () => {
+        local.agent.move(-1, async () => {
+          const ok = await DialogConfirm.show(dialog, "Enter Coding Mode?", "This switches to a minimal CLI-style interface. Are you sure?")
+          if (ok) local.agent.set("coding")
+        })
       },
     },
     {
@@ -576,6 +593,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       value: "variant.cycle",
       keybind: "variant_cycle",
       category: "Agent",
+      hidden: true,
       onSelect: () => {
         local.model.variant.cycle()
       },
@@ -614,6 +632,81 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         dialog.replace(() => <DialogProviderList />)
       },
       category: "Provider",
+    },
+    {
+      title: "View skills",
+      value: "skill.list",
+      slash: {
+        name: "skills",
+        aliases: ["skill"],
+      },
+      category: "Skill",
+      onSelect: async () => {
+        const { Skill } = await import("@/skill")
+        const list = await Skill.available()
+        const t = useTheme().theme
+        const d = useDialog()
+        if (list.length === 0) {
+          d.replace(() => (
+            <box gap={1} paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
+              <text fg={t.text}><b>Skills</b></text>
+              <text fg={t.textMuted}>No skills installed.</text>
+              <text fg={t.textMuted}>Add skills to ~/.config/anycode/skills/ with a SKILL.md file</text>
+              <text fg={t.textMuted}>or configure paths in opencode.json under skills.paths</text>
+              <text fg={t.textMuted}>Press Esc to close</text>
+            </box>
+          ))
+          return
+        }
+        d.replace(() => (
+          <box gap={1} paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
+            <text fg={t.text}><b>Skills</b></text>
+            <For each={list}>
+              {(s) => (
+                <box flexDirection="row" gap={1}>
+                  <text fg={t.success}>{s.name}</text>
+                  <text fg={t.textMuted}>- {s.description}</text>
+                </box>
+              )}
+            </For>
+            <text fg={t.textMuted}>Press Esc to close</text>
+          </box>
+        ))
+      },
+    },
+    {
+      title: "View memories",
+      value: "memory.list",
+      slash: {
+        name: "memory",
+        aliases: ["memories"],
+      },
+      category: "Memory",
+      onSelect: async () => {
+        const { Memory } = await import("@/memory")
+        const entries = Memory.list()
+        const t = useTheme().theme
+        const d = useDialog()
+        d.replace(() => (
+          <box gap={1} paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
+            <text fg={t.text}><b>Memories</b></text>
+            <Show when={entries.length > 0}>
+              <For each={entries}>
+                {(e: any) => (
+                  <box flexDirection="row" gap={1}>
+                    <text fg={t.success}>{e.key}:</text>
+                    <text fg={t.textMuted}>{e.value}</text>
+                  </box>
+                )}
+              </For>
+            </Show>
+            <Show when={entries.length === 0}>
+              <text fg={t.textMuted}>No memories stored yet. The AI saves memories automatically.</text>
+            </Show>
+            <text fg={t.textMuted}>Press Esc to close</text>
+          </box>
+        ))
+      },
     },
     ...(sync.data.console_state.switchableOrgCount > 1
       ? [

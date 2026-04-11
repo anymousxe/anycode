@@ -1,5 +1,5 @@
 import { createStore } from "solid-js/store"
-import { batch, createEffect, createMemo } from "solid-js"
+import { batch, createEffect, createMemo, createSignal } from "solid-js"
 import { useSync } from "@tui/context/sync"
 import { useTheme } from "@tui/context/theme"
 import { uniqueBy } from "remeda"
@@ -37,6 +37,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
     const agent = iife(() => {
       const agents = createMemo(() => sync.data.agent.filter((x) => x.mode !== "subagent" && !x.hidden))
       const visibleAgents = createMemo(() => sync.data.agent.filter((x) => !x.hidden))
+      const [hiddenModes, setHiddenModes] = createSignal<string[]>([])
       const [agentStore, setAgentStore] = createStore<{
         current: string
       }>({
@@ -68,13 +69,29 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
             })
           setAgentStore("current", name)
         },
-        move(direction: 1 | -1) {
+        move(direction: 1 | -1, onConfirm?: () => void) {
           batch(() => {
-            let next = agents().findIndex((x) => x.name === agentStore.current) + direction
-            if (next < 0) next = agents().length - 1
-            if (next >= agents().length) next = 0
-            const value = agents()[next]
+            const enabled = agents().filter((x) => !hiddenModes().includes(x.name))
+            let next = enabled.findIndex((x) => x.name === agentStore.current) + direction
+            if (next < 0) next = enabled.length - 1
+            if (next >= enabled.length) next = 0
+            const value = enabled[next]
+            if (value.name === "coding" && onConfirm) {
+              onConfirm()
+              return
+            }
             setAgentStore("current", value.name)
+          })
+        },
+        hiddenModes() {
+          return hiddenModes()
+        },
+        toggleMode(name: string) {
+          setHiddenModes((prev) => {
+            if (prev.includes(name)) return prev.filter((x) => x !== name)
+            const remaining = agents().filter((x) => !prev.includes(x.name) && x.name !== name)
+            if (remaining.length < 1) return prev
+            return [...prev, name]
           })
         },
         color(name: string) {

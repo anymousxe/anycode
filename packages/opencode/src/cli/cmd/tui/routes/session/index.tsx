@@ -449,21 +449,23 @@ export function Session() {
       slash: {
         name: "prompt",
       },
-      onSelect: (dialog) => {
-        const currentPrompt = Memory.recall("_system_prompt")
-        DialogPrompt.show(dialog, "Custom System Prompt", {
-          value: currentPrompt === `No memory found for key: _system_prompt` ? "" : currentPrompt,
-          placeholder: "Enter instructions the AI should always follow...",
-          onConfirm(value) {
-            if (value.trim()) {
-              Memory.save("_system_prompt", value.trim())
-              toast.show({ message: "Custom prompt saved! It will be active in new messages.", variant: "success" })
-            } else {
-              Memory.remove("_system_prompt")
-              toast.show({ message: "Custom prompt removed.", variant: "success" })
-            }
-          },
+      onSelect: async (dialog) => {
+        const current = Memory.recall("_system_prompt")
+        const existing = current === `No memory found for key: _system_prompt` ? "" : current
+        const result = await DialogPrompt.show(dialog, "Custom System Prompt", {
+          value: existing,
+          height: 8,
+          placeholder: "Enter instructions the AI should always follow across all chats...",
         })
+        if (result === null) return
+        if (result.trim()) {
+          Memory.save("_system_prompt", result.trim())
+          toast.show({ message: "Custom prompt saved! It will be active in new messages.", variant: "success" })
+        } else {
+          Memory.remove("_system_prompt")
+          toast.show({ message: "Custom prompt removed.", variant: "success" })
+        }
+        dialog.clear()
       },
     },
     {

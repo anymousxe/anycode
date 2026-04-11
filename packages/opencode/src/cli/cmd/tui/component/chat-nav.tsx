@@ -6,7 +6,6 @@ import { useDialog } from "@tui/ui/dialog"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { createMemo, For, Show, createSignal } from "solid-js"
 import { Locale } from "@/util/locale"
-import { Clipboard } from "@tui/util/clipboard"
 import { Global } from "@/global"
 import path from "path"
 
@@ -53,30 +52,34 @@ export function ChatNav() {
     await sdk.client.session.delete({ sessionID: id }).catch(() => {})
   }
 
-  const rename = (id: string) => {
+  const rename = async (id: string) => {
     const sess = sync.session.get(id)
-    DialogPrompt.show(dialog, "Rename Chat", {
+    const result = await DialogPrompt.show(dialog, "Rename Chat", {
       value: sess?.title ?? "",
-      onConfirm(value) {
-        sdk.client.session.update({ sessionID: id, title: value }).catch(() => {})
-      },
     })
+    if (result !== null) {
+      sdk.client.session.update({ sessionID: id, title: result }).catch(() => {})
+    }
   }
 
   const openSettings = () => {
     const configPath = path.join(Global.Path.config, "tui.json")
-    Clipboard.copy(configPath).then(() => {
-      dialog.replace(() => (
-        <box gap={1} paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
-          <text fg={theme.text}><b>Settings</b></text>
-          <text fg={theme.textMuted}>Config path copied to clipboard:</text>
-          <text fg={theme.primary}>{configPath}</text>
-          <text fg={theme.textMuted}>Edit tui.json to change keybinds & theme</text>
-          <text fg={theme.textMuted}>Edit opencode.json for providers & agents</text>
-          <text fg={theme.textMuted}>Press Esc to close</text>
-        </box>
-      ))
-    })
+    const appConfigPath = path.join(Global.Path.config, "opencode.json")
+    dialog.replace(() => (
+      <box gap={1} paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
+        <text fg={theme.text}><b>⚙ Settings</b></text>
+        <text fg={theme.textMuted}>Config files:</text>
+        <text fg={theme.primary}>{configPath}</text>
+        <text fg={theme.textMuted}>  keybinds & theme</text>
+        <text fg={theme.primary}>{appConfigPath}</text>
+        <text fg={theme.textMuted}>  providers & agents</text>
+        <text fg={theme.textMuted}> </text>
+        <text fg={theme.textMuted}>Use /memory to view saved memories</text>
+        <text fg={theme.textMuted}>Use /prompt to set a custom system prompt</text>
+        <text fg={theme.textMuted}>Press Tab to cycle agent modes</text>
+        <text fg={theme.textMuted}>Press Esc to close</text>
+      </box>
+    ))
   }
 
   if (collapsed()) {

@@ -14,6 +14,7 @@ import PROMPT_EXPLORE from "./prompt/explore.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
 import PROMPT_AGENT from "./prompt/agent.txt"
+import PROMPT_CODING from "./prompt/coding.txt"
 import { Permission } from "@/permission"
 import { mergeDeep, pipe, sortBy, values } from "remeda"
 import { Global } from "@/global"
@@ -46,6 +47,7 @@ export namespace Agent {
       prompt: z.string().optional(),
       options: z.record(z.string(), z.any()),
       steps: z.number().int().positive().optional(),
+      confirmRequired: z.boolean().optional(),
     })
     .meta({
       ref: "Agent",
@@ -163,6 +165,26 @@ export namespace Agent {
               ),
               mode: "primary",
               native: true,
+            },
+            coding: {
+              name: "coding",
+              description: "Minimal coding mode. Stripped-down UI, concise responses, pure code focus.",
+              color: "#f59e0b",
+              prompt: PROMPT_CODING,
+              options: {},
+              permission: Permission.merge(
+                defaults,
+                Permission.fromConfig({
+                  question: "allow",
+                  plan_enter: "allow",
+                  plan_exit: "allow",
+                  memory: "allow",
+                }),
+                user,
+              ),
+              mode: "primary",
+              native: true,
+              confirmRequired: true,
             },
             general: {
               name: "general",
