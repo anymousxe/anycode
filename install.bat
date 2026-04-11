@@ -34,6 +34,8 @@ copy /y dist\anycode-windows-x64\bin\anycode.exe "%INSTALL_DIR%\anycode.exe" >nu
 cd /d "%USERPROFILE%"
 rmdir /s /q "%TMPDIR%"
 
+echo Adding %INSTALL_DIR% to PATH...
+powershell -Command "$p = [Environment]::GetEnvironmentVariable('Path', 'User'); if ($p -notlike '*%INSTALL_DIR%*') { [Environment]::SetEnvironmentVariable('Path', $p + ';%INSTALL_DIR%', 'User') }"
+
 echo.
-echo Done! Run 'anycode' to start.
-echo Make sure %INSTALL_DIR% is in your PATH.
+echo Done! Close this terminal and open a new one, then run 'anycode'.

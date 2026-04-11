@@ -47,4 +47,9 @@ rm -rf "$TMPDIR"
 
 echo ""
 echo "Done! Run 'anycode' to start."
-echo "Make sure $INSTALL_DIR is in your PATH."
+
+if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
+  echo ""
+  echo "Add $INSTALL_DIR to your PATH:"
+  echo "  echo 'export PATH=\"$INSTALL_DIR:\$PATH\"' >> ~/.bashrc && source ~/.bashrc"
+fi
