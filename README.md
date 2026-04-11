@@ -96,6 +96,35 @@ anycode
 | `Ctrl+C` | Abort current AI response |
 | `Esc` | Close dialog / go back |
 
+## Custom Providers (OpenAI-compatible)
+
+Add any OpenAI-compatible endpoint (local models, proxies, custom deployments) to `~/.config/anycode/opencode.json`:
+
+```json
+{
+  "provider": {
+    "my-custom": {
+      "name": "My Custom Endpoint",
+      "env": ["MY_CUSTOM_API_KEY"],
+      "options": {
+        "baseURL": "https://your-endpoint.com/v1",
+        "apiKey": "sk-xxx"
+      },
+      "models": {
+        "gpt-5.4": {
+          "name": "GPT 5.4",
+          "tool_call": true,
+          "temperature": true,
+          "limit": { "context": 128000, "output": 16384 }
+        }
+      }
+    }
+  }
+}
+```
+
+Then select it in the model picker (`Ctrl+X M` or type `@my-custom:gpt-5.4` in the prompt).
+
 ## Config
 
 Config files live in `~/.config/anycode/`:
