@@ -26,6 +26,7 @@ import { Log } from "@/util/log"
 import { LspTool } from "./lsp"
 import { Truncate } from "./truncate"
 import { ApplyPatchTool } from "./apply_patch"
+import { MemoryTool } from "./memory"
 import { Glob } from "../util/glob"
 import path from "path"
 import { pathToFileURL } from "url"
@@ -189,6 +190,7 @@ export namespace ToolRegistry {
             skill: Tool.init(skilltool),
             patch: Tool.init(patchtool),
             question: Tool.init(question),
+            memory: Tool.init(MemoryTool),
             lsp: Tool.init(lsptool),
             plan: Tool.init(plan),
           })
@@ -210,6 +212,7 @@ export namespace ToolRegistry {
               tool.search,
               tool.code,
               tool.skill,
+              tool.memory,
               tool.patch,
               ...(Flag.OPENCODE_EXPERIMENTAL_LSP_TOOL ? [tool.lsp] : []),
               ...(Flag.OPENCODE_EXPERIMENTAL_PLAN_MODE && Flag.OPENCODE_CLIENT === "cli" ? [tool.plan] : []),

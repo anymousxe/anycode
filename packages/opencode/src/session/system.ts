@@ -15,6 +15,7 @@ import type { Provider } from "@/provider/provider"
 import type { Agent } from "@/agent/agent"
 import { Permission } from "@/permission"
 import { Skill } from "@/skill"
+import { Memory } from "@/memory"
 
 export namespace SystemPrompt {
   export function provider(model: Provider.Model) {
@@ -35,6 +36,7 @@ export namespace SystemPrompt {
 
   export async function environment(model: Provider.Model) {
     const project = Instance.project
+    const memPrompt = Memory.systemPrompt()
     return [
       [
         `You are powered by the model named ${model.api.id}. The exact model ID is ${model.providerID}/${model.api.id}`,
@@ -56,6 +58,7 @@ export namespace SystemPrompt {
             : ""
         }`,
         `</directories>`,
+        ...(memPrompt ? [memPrompt] : []),
       ].join("\n"),
     ]
   }

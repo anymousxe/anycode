@@ -66,8 +66,8 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
         <text fg={theme().text}>
           <b>Chats</b>
         </text>
-        <text fg={theme().textDim}>{open() ? "▾" : "▸"}</text>
-        <text fg={theme().textDim} marginLeft="auto">
+        <text fg={theme().textMuted}>{open() ? "▾" : "▸"}</text>
+        <text fg={theme().textMuted} marginLeft="auto">
           {sessions().length}
         </text>
       </box>
@@ -81,7 +81,7 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
               return (
                 <box flexDirection="row" gap={1}>
                   <text
-                    fg={active() ? theme().success : theme().textDim}
+                    fg={active() ? theme().success : theme().textMuted}
                     onMouseUp={() => switchTo(s.id)}
                   >
                     {active() ? "●" : "○"}
@@ -92,10 +92,10 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
                   >
                     {trunc}
                   </text>
-                  <text fg={theme().textDim}>{formatDate(s.updatedAt)}</text>
+                  <text fg={theme().textMuted}>{formatDate(s.updatedAt)}</text>
                   <Show when={!active()}>
                     <text
-                      fg={theme().textDim}
+                      fg={theme().textMuted}
                       onMouseUp={() => del(s.id)}
                     >
                       ×
@@ -103,7 +103,7 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
                   </Show>
                   <Show when={active()}>
                     <text
-                      fg={theme().textDim}
+                      fg={theme().textMuted}
                       onMouseUp={() => rename(s.id)}
                     >
                       ✎
@@ -121,8 +121,8 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
           <text fg={theme().primary} onMouseUp={newChat}>
             <b>+ New</b>
           </text>
-          <text fg={theme().textDim}>·</text>
-          <text fg={theme().textDim}>click ○ switch · ✎ rename · × del</text>
+          <text fg={theme().textMuted}>·</text>
+          <text fg={theme().textMuted}>click ○ switch · ✎ rename · × del</text>
         </box>
       </Show>
     </box>

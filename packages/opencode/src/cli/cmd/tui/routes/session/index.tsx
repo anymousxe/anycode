@@ -48,6 +48,7 @@ import type { WebFetchTool } from "@/tool/webfetch"
 import type { TaskTool } from "@/tool/task"
 import type { QuestionTool } from "@/tool/question"
 import type { SkillTool } from "@/tool/skill"
+import { Memory } from "@/memory"
 import { useKeyboard, useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
 import { useSDK } from "@tui/context/sdk"
 import { useCommandDialog } from "@tui/component/dialog-command"
@@ -59,6 +60,7 @@ import { TodoItem } from "../../component/todo-item"
 import { DialogMessage } from "./dialog-message"
 import type { PromptInfo } from "../../component/prompt/history"
 import { DialogConfirm } from "@tui/ui/dialog-confirm"
+import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { DialogTimeline } from "./dialog-timeline"
 import { DialogForkFromTimeline } from "./dialog-fork-from-timeline"
 import { DialogSessionRename } from "../../component/dialog-session-rename"
@@ -407,6 +409,61 @@ export function Session() {
             })
           })
         dialog.clear()
+      },
+    },
+    {
+      title: "View memories",
+      value: "memory.view",
+      category: "Memory",
+      slash: {
+        name: "memory",
+      },
+      onSelect: (dialog) => {
+        const entries = Memory.list()
+        const t = useTheme().theme
+        dialog.replace(() => (
+          <box gap={1} paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
+            <text fg={t.text}><b>Memories</b></text>
+            <Show when={entries.length > 0}>
+              <For each={entries}>
+                {(e) => (
+                  <box flexDirection="row" gap={1}>
+                    <text fg={t.success}>{e.key}:</text>
+                    <text fg={t.textMuted}>{e.value}</text>
+                  </box>
+                )}
+              </For>
+            </Show>
+            <Show when={entries.length === 0}>
+              <text fg={t.textMuted}>No memories stored. The AI will save memories automatically using the memory tool.</text>
+            </Show>
+            <text fg={t.textMuted}>Press Esc to close</text>
+          </box>
+        ))
+      },
+    },
+    {
+      title: "Set custom system prompt",
+      value: "prompt.set",
+      category: "Session",
+      slash: {
+        name: "prompt",
+      },
+      onSelect: (dialog) => {
+        const currentPrompt = Memory.recall("_system_prompt")
+        DialogPrompt.show(dialog, "Custom System Prompt", {
+          value: currentPrompt === `No memory found for key: _system_prompt` ? "" : currentPrompt,
+          placeholder: "Enter instructions the AI should always follow...",
+          onConfirm(value) {
+            if (value.trim()) {
+              Memory.save("_system_prompt", value.trim())
+              toast.show({ message: "Custom prompt saved! It will be active in new messages.", variant: "success" })
+            } else {
+              Memory.remove("_system_prompt")
+              toast.show({ message: "Custom prompt removed.", variant: "success" })
+            }
+          },
+        })
       },
     },
     {

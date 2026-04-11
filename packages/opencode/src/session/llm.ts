@@ -8,6 +8,7 @@ import { mergeDeep, pipe } from "remeda"
 import { GitLabWorkflowLanguageModel } from "gitlab-ai-provider"
 import { ProviderTransform } from "@/provider/transform"
 import { Config } from "@/config/config"
+import { Memory } from "@/memory"
 import { Instance } from "@/project/instance"
 import type { Agent } from "@/agent/agent"
 import type { MessageV2 } from "./message-v2"
@@ -104,6 +105,7 @@ export namespace LLM {
     const isOpenaiOauth = provider.id === "openai" && auth?.type === "oauth"
 
     const system: string[] = []
+    const customUserPrompt = Memory.recall("_system_prompt")
     system.push(
       [
         // use agent prompt otherwise provider prompt
@@ -112,6 +114,8 @@ export namespace LLM {
         ...input.system,
         // any custom prompt from last user message
         ...(input.user.system ? [input.user.system] : []),
+        // custom system prompt set via /prompt command
+        ...(customUserPrompt && customUserPrompt !== `No memory found for key: _system_prompt` ? [`<custom_instructions>\n${customUserPrompt}\n</custom_instructions>`] : []),
       ]
         .filter((x) => x)
         .join("\n"),
