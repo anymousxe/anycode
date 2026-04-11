@@ -37,7 +37,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
     const agent = iife(() => {
       const agents = createMemo(() => sync.data.agent.filter((x) => x.mode !== "subagent" && !x.hidden))
       const visibleAgents = createMemo(() => sync.data.agent.filter((x) => !x.hidden))
-      const [hiddenModes, setHiddenModes] = createSignal<string[]>([])
+      const [hiddenModes, setHiddenModes] = createSignal<string[]>(["coding"])
       const [agentStore, setAgentStore] = createStore<{
         current: string
       }>({
