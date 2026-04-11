@@ -953,6 +953,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       const buf = Buffer.from(await res.arrayBuffer())
       const fs = await import("fs/promises")
       await fs.writeFile(process.execPath + ".new", buf, { mode: 0o755 })
+      await fs.writeFile(process.execPath + ".new.ver", version)
 
       await DialogAlert.show(
         dialog,

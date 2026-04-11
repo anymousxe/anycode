@@ -100,6 +100,7 @@ export function ChatNav() {
       const stagingPath = process.execPath + ".new"
       const fs = await import("fs/promises")
       await fs.writeFile(stagingPath, buf, { mode: 0o755 })
+      await fs.writeFile(stagingPath + ".ver", target)
       await DialogAlert.show(dialog, "Update Ready", `AnyCode v${target} downloaded. Restart anycode to apply the update.`)
       setUpdateStatus("idle")
     } catch {

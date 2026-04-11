@@ -34,6 +34,7 @@ import { Global } from "./global"
 import { JsonMigration } from "./storage/json-migration"
 import { Database } from "./storage/db"
 import { errorMessage } from "./util/error"
+import semver from "semver"
 import { PluginCommand } from "./cli/cmd/plug"
 import { Heap } from "./cli/heap"
 import { drizzle } from "drizzle-orm/bun-sqlite"
@@ -102,43 +103,50 @@ const cli = yargs(args)
     Heap.start()
 
     const staging = process.execPath + ".new"
-    const applyScript = process.execPath.replace(/\.exe$/, "-apply.bat")
+    const verFile = process.execPath + ".new.ver"
     try {
       await fs.access(staging)
-    } catch { /* no update pending */ }
-    try {
-      if (process.platform === "win32") {
-        const pid = process.pid
-        const exe = process.execPath
-        const script = [
-          `@echo off`,
-          `echo AnyCode: Applying update...`,
-          `:wait`,
-          `tasklist /FI "PID eq ${pid}" 2>NUL | find "${pid}" >NUL`,
-          `if %ERRORLEVEL%==0 (`,
-          `  timeout /T 1 /NOBREAK >NUL`,
-          `  goto wait`,
-          `)`,
-          `copy /Y "${staging}" "${exe}"`,
-          `if %ERRORLEVEL%==0 (`,
-          `  del "${staging}"`,
-          `  echo Update applied successfully.`,
-          `  start "" "${exe}"`,
-          `) else (`,
-          `  echo Update failed.`,
-          `)`,
-          `del "%~f0"`,
-        ].join("\r\n")
-        await fs.writeFile(applyScript, script)
-        const child = Bun.spawn(["cmd", "/c", applyScript], { detached: true, stdio: ["ignore", "ignore", "ignore"] as any })
-        child.unref()
-        process.stderr.write("AnyCode update applying. Exiting to apply..." + EOL)
-        process.exit(0)
+      const pending = (await fs.readFile(verFile, "utf-8")).trim()
+      if (pending && semver.gt(pending, Installation.VERSION)) {
+        if (process.platform === "win32") {
+          const pid = process.pid
+          const exe = process.execPath
+          const applyScript = exe.replace(/\.exe$/, "-apply.bat")
+          const script = [
+            `@echo off`,
+            `echo AnyCode: Applying update to v${pending}...`,
+            `:wait`,
+            `tasklist /FI "PID eq ${pid}" 2>NUL | find "${pid}" >NUL`,
+            `if %ERRORLEVEL%==0 (`,
+            `  timeout /T 1 /NOBREAK >NUL`,
+            `  goto wait`,
+            `)`,
+            `copy /Y "${staging}" "${exe}"`,
+            `if %ERRORLEVEL%==0 (`,
+            `  del "${staging}"`,
+            `  del "${verFile}"`,
+            `  echo Update applied successfully.`,
+            `  start "" "${exe}"`,
+            `) else (`,
+            `  echo Update failed.`,
+            `)`,
+            `del "%~f0"`,
+          ].join("\r\n")
+          await fs.writeFile(applyScript, script)
+          const child = Bun.spawn(["cmd", "/c", applyScript], { detached: true, stdio: ["ignore", "ignore", "ignore"] as any })
+          child.unref()
+          process.stderr.write("AnyCode update applying. Exiting to apply..." + EOL)
+          process.exit(0)
+        } else {
+          await fs.rename(process.execPath, process.execPath + ".old")
+          await fs.rename(staging, process.execPath)
+          try { await fs.unlink(process.execPath + ".old") } catch {}
+          try { await fs.unlink(verFile) } catch {}
+          process.stderr.write("AnyCode update applied. Starting..." + EOL)
+        }
       } else {
-        await fs.rename(process.execPath, process.execPath + ".old")
-        await fs.rename(staging, process.execPath)
-        try { await fs.unlink(process.execPath + ".old") } catch {}
-        process.stderr.write("AnyCode update applied. Starting..." + EOL)
+        await fs.unlink(staging).catch(() => {})
+        await fs.unlink(verFile).catch(() => {})
       }
     } catch {}
 
