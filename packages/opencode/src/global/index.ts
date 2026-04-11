@@ -5,11 +5,52 @@ import os from "os"
 import { Filesystem } from "../util/filesystem"
 
 const app = "anycode"
+const legacyApp = "opencode"
 
 const data = path.join(xdgData!, app)
 const cache = path.join(xdgCache!, app)
 const config = path.join(xdgConfig!, app)
 const state = path.join(xdgState!, app)
+
+const legacyData = path.join(xdgData!, legacyApp)
+const legacyCache = path.join(xdgCache!, legacyApp)
+const legacyConfig = path.join(xdgConfig!, legacyApp)
+const legacyState = path.join(xdgState!, legacyApp)
+
+async function migrateDir(src: string, dest: string) {
+  try {
+    await fs.access(src)
+  } catch { return }
+  let destEmpty = true
+  try {
+    const items = await fs.readdir(dest)
+    destEmpty = items.length === 0
+  } catch { destEmpty = true }
+  if (!destEmpty) return
+  try {
+    await fs.mkdir(dest, { recursive: true })
+    const entries = await fs.readdir(src, { withFileTypes: true })
+    for (const entry of entries) {
+      const from = path.join(src, entry.name)
+      const to = path.join(dest, entry.name)
+      if (entry.isDirectory()) {
+        await fs.mkdir(to, { recursive: true })
+        const inner = await fs.readdir(from, { withFileTypes: true })
+        for (const f of inner) {
+          await fs.rename(path.join(from, f.name), path.join(to, f.name)).catch(() => {})
+        }
+      } else {
+        await fs.rename(from, to)
+      }
+    }
+    try { await fs.rm(src, { recursive: true, force: true }) } catch {}
+  } catch {}
+}
+
+await migrateDir(legacyData, data)
+await migrateDir(legacyCache, cache)
+await migrateDir(legacyConfig, config)
+await migrateDir(legacyState, state)
 
 export namespace Global {
   export const Path = {
