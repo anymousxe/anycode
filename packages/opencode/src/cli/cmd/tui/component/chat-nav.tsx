@@ -63,8 +63,9 @@ export function ChatNav() {
     }
   }
 
+  const local = useLocal()
+
   const openSettings = () => {
-    const local = useLocal()
     const allModes = ["build", "plan", "agent", "coding"]
     const modeColors: Record<string, string> = {
       build: theme.primary.toString(),
