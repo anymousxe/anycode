@@ -839,7 +839,10 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
 
         dialog.replace(() => {
           const user = ghUser()
-          const reqs = (requests() ?? []).filter((r: any) => r.status === "pending")
+          const loginLower = user?.login?.toLowerCase()
+          const allPending = (requests() ?? []).filter((r: any) => r.status === "pending")
+          const incoming = allPending.filter((r: any) => r.to?.toLowerCase() === loginLower)
+          const sent = allPending.filter((r: any) => r.from?.toLowerCase() === loginLower)
           const collabRepos = repos()
 
           return (
@@ -878,11 +881,11 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
                   <text fg={theme.textMuted}>Sending...</text>
                 </Show>
                 <text fg={theme.textMuted}> </text>
-                <text fg={theme.text}><b>Incoming Requests ({reqs.length})</b></text>
-                <Show when={reqs.length === 0}>
-                  <text fg={theme.textMuted}>No pending requests</text>
+                <text fg={theme.text}><b>Incoming ({incoming.length})</b></text>
+                <Show when={incoming.length === 0}>
+                  <text fg={theme.textMuted}>No incoming requests</text>
                 </Show>
-                <For each={reqs.filter((r: any) => r.to === user?.login)}>
+                <For each={incoming}>
                   {(req: any) => (
                     <box flexDirection="row" gap={1}>
                       <text fg={theme.text}>@{req.from}</text>
@@ -903,6 +906,18 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
                     </box>
                   )}
                 </For>
+                <Show when={sent.length > 0}>
+                  <text fg={theme.textMuted}> </text>
+                  <text fg={theme.textMuted}><b>Sent ({sent.length})</b></text>
+                  <For each={sent}>
+                    {(req: any) => (
+                      <box flexDirection="row" gap={1}>
+                        <text fg={theme.textMuted}>→ @{req.to}</text>
+                        <text fg={theme.warning}>{req.status}</text>
+                      </box>
+                    )}
+                  </For>
+                </Show>
                 <text fg={theme.textMuted}> </text>
                 <text fg={theme.text}><b>Shared Repos ({collabRepos.length})</b></text>
                 <For each={collabRepos.slice(0, 5)}>
