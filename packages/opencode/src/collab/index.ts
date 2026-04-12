@@ -86,7 +86,7 @@ export const GitHub = {
     return res.json()
   },
 
-  async startDeviceFlow(): Promise<{ device_code: string; user_code: string; verification_uri: string; interval: number; expires_in: number }> {
+  async startDeviceFlow(): Promise<{ device_code: string; user_code: string; verification_uri: string; interval: number; expires_in: number; _alt?: boolean }> {
     const res = await fetch(`${COLLAB_URL}/auth/device`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -94,22 +94,22 @@ export const GitHub = {
     return res.json()
   },
 
-  async pollDeviceToken(device_code: string): Promise<{ access_token: string; user: { login: string; avatar_url: string; name: string } } | { error: string }> {
+  async pollDeviceToken(device_code: string, alt?: boolean): Promise<{ access_token: string; user: { login: string; avatar_url: string; name: string } } | { error: string }> {
     const res = await fetch(`${COLLAB_URL}/auth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ device_code }),
+      body: JSON.stringify({ device_code, alt }),
     })
     return res.json()
   },
 
-  async loginWithFlow(flow: { device_code: string; interval: number; expires_in: number }): Promise<GitHubUser> {
+  async loginWithFlow(flow: { device_code: string; interval: number; expires_in: number; _alt?: boolean }): Promise<GitHubUser> {
     const interval = flow.interval * 1000
     const deadline = Date.now() + flow.expires_in * 1000
 
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, interval))
-      const result = await GitHub.pollDeviceToken(flow.device_code)
+      const result = await GitHub.pollDeviceToken(flow.device_code, flow._alt)
       if ("access_token" in result) {
         await GitHub.setToken(result.access_token)
         const user = await GitHub.getUser()
