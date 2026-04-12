@@ -5,8 +5,9 @@ import { useSDK } from "@tui/context/sdk"
 import { useDialog } from "@tui/ui/dialog"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { DialogAlert } from "@tui/ui/dialog-alert"
+import { DialogConfirm } from "@tui/ui/dialog-confirm"
 import { useToast } from "@tui/ui/toast"
-import { createMemo, For, Show, createSignal } from "solid-js"
+import { createMemo, For, Show, createSignal, onMount } from "solid-js"
 import { Locale } from "@/util/locale"
 import { Memory } from "@/memory"
 import { Global } from "@/global"
@@ -82,12 +83,17 @@ export function ChatNav() {
   const [ghProfile, setGhProfile] = createSignal<GitHubProfile | null>(null)
   const [ghLoading, setGhLoading] = createSignal(false)
 
+  onMount(async () => {
+    const stored = await GitHub.getStoredUser()
+    if (stored) setGhProfile(stored)
+  })
+
   const loadGitHub = async () => {
     setGhLoading(true)
     try {
       if (await GitHub.isLoggedIn()) {
-        const user = await GitHub.getUser()
-        setGhProfile(user)
+        const user = await GitHub.getUser().catch(() => GitHub.getStoredUser())
+        if (user) setGhProfile(user)
         setGhLoading(false)
         return
       }
@@ -230,6 +236,14 @@ export function ChatNav() {
               <text fg={theme.success}>●</text>
               <text fg={theme.text}>{p().name ?? p().login}</text>
               <text fg={theme.textMuted}>@{p().login}</text>
+              <text fg={theme.error} onMouseUp={async () => {
+                const ok = await DialogConfirm.show(dialog, "Logout", "Disconnect your GitHub account?")
+                if (ok) {
+                  await GitHub.logout()
+                  setGhProfile(null)
+                  toast.show({ message: "Logged out of GitHub", variant: "info" })
+                }
+              }}><b>[Logout]</b></text>
             </box>
           )}
         </Show>

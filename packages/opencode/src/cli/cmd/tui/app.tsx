@@ -830,12 +830,15 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
             ))
             return
           }
-          const user = await GitHub.getUser()
-          setGhUser(user)
+          const user = await GitHub.getUser().catch(() => GitHub.getStoredUser())
+          if (user) setGhUser(user)
           const [reqs, collabRepos] = await Promise.all([Collab.getRequests(), Collab.getCollabRepos()])
-          setRequests(Array.isArray(reqs) ? reqs : [])
-          setRepos(Array.isArray(collabRepos) ? collabRepos : [])
-        } catch {}
+          setRequests(reqs)
+          setRepos(collabRepos)
+        } catch {
+          const stored = await GitHub.getStoredUser()
+          if (stored) setGhUser(stored)
+        }
 
         dialog.replace(() => {
           const user = ghUser()

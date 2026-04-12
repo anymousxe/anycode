@@ -1,11 +1,11 @@
 import path from "path"
 import fs from "fs/promises"
 import { Global } from "@/global"
-import { Log } from "@/util/log"
 
 const COLLAB_URL = "https://anycode-collab.anymousxe-info.workers.dev"
-const tokenFile = path.join(Global.Path.data, "github-token")
-const logger = Log.create()
+const dataDir = Global.Path.data
+const tokenFile = path.join(dataDir, "github-token")
+const loginFile = path.join(dataDir, "github-login")
 
 interface GitHubUser {
   login: string
@@ -33,15 +33,20 @@ interface ChatMessage {
 }
 
 async function collabApi(path: string, opts?: RequestInit) {
-  const token = await GitHub.getToken()
+  const [token, login] = await Promise.all([GitHub.getToken(), GitHub.getLogin()])
   const res = await fetch(`${COLLAB_URL}${path}`, {
     ...opts,
     headers: {
       Authorization: `Bearer ${token ?? ""}`,
+      "X-GitHub-Login": login ?? "",
       "Content-Type": "application/json",
       ...(opts?.headers ?? {}),
     },
   })
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    throw new Error(`API error ${res.status}: ${text}`)
+  }
   return res.json()
 }
 
@@ -57,24 +62,31 @@ export const GitHub = {
     await fs.writeFile(tokenFile, token, { mode: 0o600 })
   },
 
+  async getLogin(): Promise<string | null> {
+    try {
+      return (await fs.readFile(loginFile, "utf-8")).trim()
+    } catch { return null }
+  },
+
+  async setLogin(login: string) {
+    await fs.mkdir(path.dirname(loginFile), { recursive: true })
+    await fs.writeFile(loginFile, login)
+  },
+
   async removeToken() {
     try { await fs.unlink(tokenFile) } catch {}
+    try { await fs.unlink(loginFile) } catch {}
   },
 
   async isLoggedIn(): Promise<boolean> {
     const token = await GitHub.getToken()
-    if (!token || token.length < 10) return false
-    try {
-      const res = await fetch("https://api.github.com/user", {
-        headers: { Authorization: `token ${token}`, "User-Agent": "anycode" },
-      })
-      if (res.status === 401) {
-        await GitHub.removeToken()
-        return false
-      }
-      if (!res.ok) return true
-      return true
-    } catch { return true }
+    return !!token && token.length >= 10
+  },
+
+  async getStoredUser(): Promise<GitHubUser | null> {
+    const [token, login] = await Promise.all([GitHub.getToken(), GitHub.getLogin()])
+    if (!token || !login) return null
+    return { login, avatar_url: "", html_url: `https://github.com/${login}`, name: login, bio: null }
   },
 
   async getUser(): Promise<GitHubUser> {
@@ -83,8 +95,18 @@ export const GitHub = {
     const res = await fetch("https://api.github.com/user", {
       headers: { Authorization: `token ${token}`, "User-Agent": "anycode" },
     })
-    if (!res.ok) throw new Error("GitHub auth failed")
-    return res.json()
+    if (res.status === 401) {
+      await GitHub.removeToken()
+      throw new Error("Token expired")
+    }
+    if (!res.ok) {
+      const stored = await GitHub.getStoredUser()
+      if (stored) return stored
+      throw new Error("GitHub auth failed")
+    }
+    const user = await res.json()
+    await GitHub.setLogin(user.login)
+    return user
   },
 
   async startDeviceFlow(): Promise<{ device_code: string; user_code: string; verification_uri: string; interval: number; expires_in: number; _alt?: boolean }> {
@@ -113,8 +135,8 @@ export const GitHub = {
       const result = await GitHub.pollDeviceToken(flow.device_code, flow._alt)
       if ("access_token" in result) {
         await GitHub.setToken(result.access_token)
-        const user = await GitHub.getUser()
-        return user
+        await GitHub.setLogin(result.user.login)
+        return { login: result.user.login, avatar_url: result.user.avatar_url, html_url: `https://github.com/${result.user.login}`, name: result.user.name, bio: null }
       }
       if (result.error !== "authorization_pending" && result.error !== "slow_down") {
         throw new Error(`Auth failed: ${result.error}`)
@@ -152,7 +174,10 @@ export const Collab = {
   },
 
   async getRequests(): Promise<CollabRequest[]> {
-    return collabApi("/collab/requests")
+    try {
+      const result = await collabApi("/collab/requests")
+      return Array.isArray(result) ? result : []
+    } catch { return [] }
   },
 
   async respondRequest(id: string, action: "accepted" | "declined"): Promise<CollabRequest> {
@@ -170,7 +195,10 @@ export const Collab = {
   },
 
   async getCollabRepos(): Promise<any[]> {
-    return collabApi("/collab/repos")
+    try {
+      const result = await collabApi("/collab/repos")
+      return Array.isArray(result) ? result : []
+    } catch { return [] }
   },
 
   async sendChat(repo: string, from: string, body: string, type: "human" | "ai" = "human"): Promise<ChatMessage> {
