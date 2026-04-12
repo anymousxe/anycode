@@ -56,6 +56,7 @@ import type { DialogContext } from "@tui/ui/dialog"
 import { useKeybind } from "@tui/context/keybind"
 import { parsePatch } from "diff"
 import { useDialog } from "../../ui/dialog"
+import { DialogModel } from "@tui/component/dialog-model"
 import { TodoItem } from "../../component/todo-item"
 import { DialogMessage } from "./dialog-message"
 import type { PromptInfo } from "../../component/prompt/history"
@@ -466,6 +467,17 @@ export function Session() {
           toast.show({ message: "Custom prompt removed.", variant: "success" })
         }
         dialog.clear()
+      },
+    },
+    {
+      title: "Switch model",
+      value: "model.select",
+      category: "Session",
+      slash: {
+        name: "model",
+      },
+      onSelect: (dialog) => {
+        dialog.replace(() => <DialogModel />)
       },
     },
     {

@@ -1,5 +1,5 @@
 import { BoxRenderable, TextareaRenderable, MouseEvent, PasteEvent, decodePasteBytes, t, dim, fg } from "@opentui/core"
-import { createEffect, createMemo, onMount, createSignal, onCleanup, on, Show, Switch, Match } from "solid-js"
+import { createEffect, createMemo, onMount, createSignal, onCleanup, on, Show, Switch, Match, For } from "solid-js"
 import "opentui-spinner/solid"
 import path from "path"
 import { fileURLToPath } from "url"
@@ -1107,6 +1107,29 @@ export function Prompt(props: PromptProps) {
                       <text>
                         <span style={{ fg: theme.warning, bold: true }}>{local.model.variant.current()}</span>
                       </text>
+                    </Show>
+                    <Show when={local.model.favorite().length > 1}>
+                      <text fg={theme.textMuted}>|</text>
+                      <For each={local.model.favorite().slice(0, 5)}>
+                        {(fav) => {
+                          const isCurrent = createMemo(() => {
+                            const cur = local.model.current()
+                            return cur?.providerID === fav.providerID && cur?.modelID === fav.modelID
+                          })
+                          const favModel = createMemo(() => {
+                            const p = sync.data.provider.find((x) => x.id === fav.providerID)
+                            return p?.models[fav.modelID]?.name ?? fav.modelID
+                          })
+                          return (
+                            <text
+                              fg={isCurrent() ? theme.primary : theme.textMuted}
+                              onMouseUp={() => !isCurrent() && local.model.set(fav, { recent: true })}
+                            >
+                              {isCurrent() ? <b>{favModel()}</b> : favModel()}
+                            </text>
+                          )
+                        }}
+                      </For>
                     </Show>
                   </box>
                 </Show>
