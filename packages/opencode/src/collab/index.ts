@@ -226,6 +226,13 @@ export const Collab = {
     })
   },
 
+  async getMembers(repo: string): Promise<string[]> {
+    try {
+      const result = await collabApi(`/collab/members?repo=${encodeURIComponent(repo)}`)
+      return Array.isArray(result) ? result : []
+    } catch { return [] }
+  },
+
   async sendChat(repo: string, from: string, body: string, type: "human" | "ai" = "human"): Promise<ChatMessage> {
     return collabApi("/collab/chat", {
       method: "POST",

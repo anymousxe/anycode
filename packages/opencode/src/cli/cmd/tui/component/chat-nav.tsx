@@ -235,7 +235,7 @@ export function ChatNav() {
             <box flexDirection="row" gap={1}>
               <text fg={theme.success}>●</text>
               <text fg={theme.text}>{p().name ?? p().login}</text>
-              <text fg={theme.textMuted}>@{p().login}</text>
+              <text fg={theme.textMuted}>{"@"}{p().login}</text>
               <text fg={theme.error} onMouseUp={async () => {
                 const ok = await DialogConfirm.show(dialog, "Logout", "Disconnect your GitHub account?")
                 if (ok) {

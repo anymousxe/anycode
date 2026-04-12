@@ -800,6 +800,9 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         const [tab, setTab] = createSignal<"requests" | "chat">("requests")
         const [chatRepo, setChatRepo] = createSignal<string | null>(null)
         const [messages, setMessages] = createSignal<any[]>([])
+        const [projTab, setProjTab] = createSignal<"team" | "ai" | "aiai">("team")
+        const [members, setMembers] = createSignal<string[]>([])
+        const [aiTasks, setAiTasks] = createSignal<any[]>([])
 
         try {
           const isLoggedIn = await GitHub.isLoggedIn()
@@ -845,54 +848,81 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
 
         const loadChat = async (repo: string) => {
           try {
-            const msgs = await Collab.getChat(repo)
+            const [msgs, mems, tasks] = await Promise.all([
+              Collab.getChat(repo),
+              Collab.getMembers(repo),
+              Collab.getAiRequests(repo).catch(() => []),
+            ])
             setMessages(msgs)
+            setMembers(mems)
+            setAiTasks(Array.isArray(tasks) ? tasks : [])
           } catch {}
+        }
+
+        const sendTeamMsg = async () => {
+          const result = await DialogPrompt.show(dialog, "Message", { placeholder: "Say something..." })
+          if (!result || !chatRepo()) return
+          try {
+            const login = await GitHub.getLogin()
+            await Collab.sendChat(chatRepo()!, login ?? "user", result, "human")
+            await loadChat(chatRepo()!)
+          } catch {
+            toast.show({ message: "Send failed", variant: "error" })
+          }
         }
 
         dialog.replace(() => {
           const user = ghUser()
           const loginLower = user?.login?.toLowerCase()
-          const allPending = (requests() ?? []).filter((r: any) => r.status === "pending")
+          const allReqs = requests() ?? []
+          const allPending = allReqs.filter((r: any) => r.status === "pending")
+          const resolved = allReqs.filter((r: any) => r.status !== "pending" && r.status !== "cancelled")
           const incoming = allPending.filter((r: any) => r.to?.toLowerCase() === loginLower)
           const sent = allPending.filter((r: any) => r.from?.toLowerCase() === loginLower)
           const collabRepos = repos()
           const activeTab = tab()
           const activeRepo = chatRepo()
           const msgs = messages()
+          const activeProjTab = projTab()
+          const projMembers = members()
+          const tasks = aiTasks()
+
+          const shortRepo = (name: string) => {
+            const s = name?.replace("anycode-collab-", "") ?? name
+            return s.length > 25 ? s.slice(0, 23) + ".." : s
+          }
 
           return (
             <box gap={1} paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
               <text fg={theme.text}><b>🤝 Collaborate</b></text>
               <Show when={!user}>
-                <text fg={theme.textMuted}>Connect GitHub in Settings (⚙) first</text>
+                <text fg={theme.textMuted}>Connect GitHub in Settings first</text>
               </Show>
               <Show when={user}>
                 <box flexDirection="row" gap={1}>
                   <text fg={theme.success}>●</text>
-                  <text fg={theme.text}>@{user.login}</text>
+                  <text fg={theme.text}>{"@"}{user.login}</text>
                 </box>
-                <box flexDirection="row" gap={2}>
-                  <text fg={activeTab === "requests" ? theme.primary : theme.textMuted} onMouseUp={() => setTab("requests")}><b>Requests</b></text>
-                  <text fg={activeTab === "chat" ? theme.primary : theme.textMuted} onMouseUp={() => setTab("chat")}><b>Chat</b></text>
-                </box>
+                <Show when={!activeRepo}>
+                  <box flexDirection="row" gap={2}>
+                    <text fg={activeTab === "requests" ? theme.primary : theme.textMuted} onMouseUp={() => setTab("requests")}><b>Requests</b></text>
+                    <text fg={activeTab === "chat" ? theme.primary : theme.textMuted} onMouseUp={() => setTab("chat")}><b>Projects</b></text>
+                  </box>
+                </Show>
 
-                <Show when={activeTab === "requests"}>
+                <Show when={activeTab === "requests" && !activeRepo}>
                   <text fg={theme.text}><b>Send Request</b></text>
                   <Show when={!sending()}>
                     <text fg={theme.primary} onMouseUp={async () => {
-                      const result = await DialogPrompt.show(dialog, "Send Collab Request", {
-                        placeholder: "Enter GitHub username...",
-                      })
+                      const result = await DialogPrompt.show(dialog, "Send Collab Request", { placeholder: "GitHub username..." })
                       if (result) {
                         setSending(true)
                         try {
                           await Collab.sendRequest(result.trim())
-                          toast.show({ message: `Request sent to @${result.trim()}`, variant: "success" })
-                          const reqs2 = await Collab.getRequests()
-                          setRequests(Array.isArray(reqs2) ? reqs2 : [])
+                          toast.show({ message: `Sent to @${result.trim()}`, variant: "success" })
+                          setRequests(await Collab.getRequests())
                         } catch {
-                          toast.show({ message: "Failed to send request", variant: "error" })
+                          toast.show({ message: "Failed", variant: "error" })
                         }
                         setSending(false)
                       }
@@ -904,28 +934,33 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
                   <text fg={theme.textMuted}> </text>
                   <text fg={theme.text}><b>Incoming ({incoming.length})</b></text>
                   <Show when={incoming.length === 0}>
-                    <text fg={theme.textMuted}>No incoming requests</text>
+                    <text fg={theme.textMuted}>None</text>
                   </Show>
                   <For each={incoming}>
                     {(req: any) => (
                       <box flexDirection="row" gap={1}>
-                        <text fg={theme.text}>@{req.from}</text>
+                        <text fg={theme.text}>{"@"}{req.from}</text>
                         <text fg={theme.success} onMouseUp={async () => {
-                          const ok = await DialogConfirm.show(dialog, "Accept", `Accept collab request from @${req.from}?`)
+                          const ok = await DialogConfirm.show(dialog, "Accept", `Accept @${req.from}?`)
                           if (!ok) return
-                          await Collab.respondRequest(req.id, "accepted")
-                          toast.show({ message: `Accepted @${req.from}!`, variant: "success" })
-                          const reqs2 = await Collab.getRequests()
-                          setRequests(Array.isArray(reqs2) ? reqs2 : [])
-                          const r2 = await Collab.getCollabRepos()
-                          setRepos(r2)
+                          try {
+                            await Collab.respondRequest(req.id, "accepted")
+                            toast.show({ message: `Accepted @${req.from}!`, variant: "success" })
+                            setRequests(await Collab.getRequests())
+                            setRepos(await Collab.getCollabRepos())
+                          } catch {
+                            toast.show({ message: "Accept failed", variant: "error" })
+                          }
                         }}><b>[Accept]</b></text>
                         <text fg={theme.error} onMouseUp={async () => {
-                          await Collab.respondRequest(req.id, "declined")
-                          toast.show({ message: `Declined`, variant: "info" })
-                          const reqs2 = await Collab.getRequests()
-                          setRequests(Array.isArray(reqs2) ? reqs2 : [])
-                        }}><b>[Decline]</b></text>
+                          try {
+                            await Collab.respondRequest(req.id, "declined")
+                            toast.show({ message: `Declined`, variant: "info" })
+                            setRequests(await Collab.getRequests())
+                          } catch {
+                            toast.show({ message: "Decline failed", variant: "error" })
+                          }
+                        }}><b>[X]</b></text>
                       </box>
                     )}
                   </For>
@@ -939,140 +974,171 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
                           <text fg={req.status === "pending" ? theme.warning : theme.textMuted}>{req.status}</text>
                           <Show when={req.status === "pending"}>
                             <text fg={theme.error} onMouseUp={async () => {
-                              await Collab.cancelRequest(req.id)
-                              toast.show({ message: `Cancelled request to @${req.to}`, variant: "info" })
-                              const reqs2 = await Collab.getRequests()
-                              setRequests(Array.isArray(reqs2) ? reqs2 : [])
-                            }}><b>[Cancel]</b></text>
+                              try {
+                                await Collab.cancelRequest(req.id)
+                                toast.show({ message: `Cancelled`, variant: "info" })
+                                setRequests(await Collab.getRequests())
+                              } catch {
+                                toast.show({ message: "Cancel failed", variant: "error" })
+                              }
+                            }}><b>[X]</b></text>
                           </Show>
                         </box>
                       )}
                     </For>
                   </Show>
-                  <text fg={theme.textMuted}> </text>
-                  <text fg={theme.text}><b>Repos ({collabRepos.length})</b></text>
-                  <For each={collabRepos.slice(0, 5)}>
-                    {(repo: any) => {
-                      const short = repo.name?.replace("anycode-collab-", "") ?? repo.name
-                      return (
+                  <Show when={resolved.length > 0}>
+                    <text fg={theme.textMuted}> </text>
+                    <text fg={theme.textMuted}><b>Resolved ({resolved.length})</b></text>
+                    <For each={resolved.slice(0, 5)}>
+                      {(req: any) => (
                         <box flexDirection="row" gap={1}>
-                          <text fg={theme.text}>{short.length > 20 ? short.slice(0, 18) + ".." : short}</text>
-                          <text fg={theme.primary} onMouseUp={async () => {
-                            try { Bun.spawn(["cmd", "/c", "start", repo.html_url]) } catch {}
-                          }}><b>[Open]</b></text>
-                          <text fg={theme.error} onMouseUp={async () => {
-                            const ok = await DialogConfirm.show(dialog, "Delete Repo", `Delete ${repo.name}?`)
-                            if (!ok) return
-                            try {
-                              await Collab.deleteRepo(repo.full_name)
-                              toast.show({ message: `Deleted`, variant: "info" })
-                              const r2 = await Collab.getCollabRepos()
-                              setRepos(r2)
-                            } catch {
-                              toast.show({ message: "Delete failed", variant: "error" })
-                            }
-                          }}><b>[X]</b></text>
+                          <text fg={theme.textMuted}>{"@"}{req.from} → {"@"}{req.to}</text>
+                          <text fg={req.status === "accepted" ? theme.success : theme.textMuted}>{req.status}</text>
                         </box>
-                      )
-                    }}
+                      )}
+                    </For>
+                  </Show>
+                </Show>
+
+                <Show when={activeTab === "chat" && !activeRepo}>
+                  <text fg={theme.text}><b>Your Projects</b></text>
+                  <Show when={collabRepos.length === 0}>
+                    <text fg={theme.textMuted}>No projects yet. Accept a request first!</text>
+                  </Show>
+                  <For each={collabRepos}>
+                    {(repo: any) => (
+                      <box flexDirection="row" gap={1}>
+                        <text fg={theme.primary} onMouseUp={async () => {
+                          setChatRepo(repo.full_name)
+                          await loadChat(repo.full_name)
+                        }}><b>{shortRepo(repo.name)}</b></text>
+                        <text fg={theme.textMuted}>{(repo.members ?? []).map((m: string) => `@${m}`).join(" ")}</text>
+                        <text fg={theme.primary} onMouseUp={() => { try { Bun.spawn(["cmd", "/c", "start", repo.html_url]) } catch {} }}><b>[Open]</b></text>
+                        <text fg={theme.error} onMouseUp={async () => {
+                          const ok = await DialogConfirm.show(dialog, "Delete", `Delete ${repo.name}?`)
+                          if (!ok) return
+                          try {
+                            await Collab.deleteRepo(repo.full_name)
+                            toast.show({ message: "Deleted", variant: "info" })
+                            setRepos(await Collab.getCollabRepos())
+                          } catch {
+                            toast.show({ message: "Delete failed", variant: "error" })
+                          }
+                        }}><b>[X]</b></text>
+                      </box>
+                    )}
                   </For>
                 </Show>
 
-                <Show when={activeTab === "chat"}>
-                  <Show when={!activeRepo}>
-                    <text fg={theme.text}><b>Select a repo:</b></text>
-                    <Show when={collabRepos.length === 0}>
-                      <text fg={theme.textMuted}>No shared repos yet. Accept a request first!</text>
-                    </Show>
-                    <For each={collabRepos.slice(0, 8)}>
-                      {(repo: any) => {
-                        const short = repo.name?.replace("anycode-collab-", "") ?? repo.name
-                        return (
-                          <box flexDirection="row" gap={1}>
-                            <text fg={theme.primary} onMouseUp={async () => {
-                              setChatRepo(repo.full_name)
-                              await loadChat(repo.full_name)
-                            }}><b>{short.length > 25 ? short.slice(0, 23) + ".." : short}</b></text>
-                            <text fg={theme.error} onMouseUp={async () => {
-                              const ok = await DialogConfirm.show(dialog, "Delete Repo", `Delete ${repo.name}?`)
-                              if (!ok) return
-                              try {
-                                await Collab.deleteRepo(repo.full_name)
-                                toast.show({ message: `Deleted`, variant: "info" })
-                                const r2 = await Collab.getCollabRepos()
-                                setRepos(r2)
-                              } catch {
-                                toast.show({ message: "Delete failed", variant: "error" })
-                              }
-                            }}><b>[X]</b></text>
-                          </box>
-                        )
-                      }}
+                <Show when={activeRepo}>
+                  <box flexDirection="row" gap={1}>
+                    <text fg={theme.text}><b>{shortRepo(activeRepo!.split("/")[1] ?? activeRepo!)}</b></text>
+                    <text fg={theme.textMuted} onMouseUp={() => { setChatRepo(null); setProjTab("team") }}><b>[Back]</b></text>
+                    <text fg={theme.primary} onMouseUp={() => { try { Bun.spawn(["cmd", "/c", "start", `https://github.com/${activeRepo}`]) } catch {} }}><b>[GitHub]</b></text>
+                  </box>
+                  <box flexDirection="row" gap={1}>
+                    <text fg={theme.textMuted}>Members:</text>
+                    <For each={projMembers}>
+                      {(m: string) => <text fg={theme.primary}>{"@"}{m}</text>}
                     </For>
-                  </Show>
-                  <Show when={activeRepo}>
-                    <box flexDirection="row" gap={1}>
-                      <text fg={theme.success}><b>Chat:</b></text>
-                      <text fg={theme.text}>{(activeRepo ?? "").length > 40 ? activeRepo!.slice(0, 37) + ".." : activeRepo}</text>
-                      <text fg={theme.textMuted} onMouseUp={() => setChatRepo(null)}><b>[Back]</b></text>
-                    </box>
-                    <Show when={msgs.length === 0}>
-                      <text fg={theme.textMuted}>No messages yet. Send one below!</text>
-                    </Show>
+                  </box>
+                  <box flexDirection="row" gap={2}>
+                    <text fg={activeProjTab === "team" ? theme.primary : theme.textMuted} onMouseUp={() => setProjTab("team")}><b>Team</b></text>
+                    <text fg={activeProjTab === "ai" ? theme.primary : theme.textMuted} onMouseUp={() => setProjTab("ai")}><b>AI</b></text>
+                    <text fg={activeProjTab === "aiai" ? theme.accent : theme.textMuted} onMouseUp={() => setProjTab("aiai")}><b>AI-AI</b></text>
+                  </box>
+
+                  <Show when={activeProjTab === "team"}>
                     <scrollbox height={10} flexGrow={1}>
                       <box gap={0}>
-                        <For each={msgs}>
+                        <Show when={msgs.filter((m: any) => m.type === "human").length === 0}>
+                          <text fg={theme.textMuted}>No team messages yet</text>
+                        </Show>
+                        <For each={msgs.filter((m: any) => m.type === "human")}>
                           {(msg: any) => {
-                            const isAi = msg.type === "ai"
                             const time = new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
                             return (
                               <box flexDirection="row" gap={1}>
                                 <text fg={theme.textMuted}>{time}</text>
-                                <text fg={isAi ? theme.accent : theme.primary}><b>{isAi ? "AI" : msg.from}</b></text>
-                                <text fg={theme.text}>{msg.body.length > 80 ? msg.body.slice(0, 77) + "..." : msg.body}</text>
+                                <text fg={msg.from?.toLowerCase() === loginLower ? theme.success : theme.primary}><b>{msg.from}</b></text>
+                                <text fg={theme.text}>{msg.body.length > 60 ? msg.body.slice(0, 57) + "..." : msg.body}</text>
                               </box>
                             )
                           }}
                         </For>
                       </box>
                     </scrollbox>
-                    <text fg={theme.textMuted}>──────────────────────────</text>
+                    <box flexDirection="row" gap={1}>
+                      <text fg={theme.primary} onMouseUp={sendTeamMsg}><b>➤ Type...</b></text>
+                      <text fg={theme.textMuted} onMouseUp={async () => { if (activeRepo) await loadChat(activeRepo) }}><b>↻</b></text>
+                    </box>
+                  </Show>
+
+                  <Show when={activeProjTab === "ai"}>
+                    <scrollbox height={10} flexGrow={1}>
+                      <box gap={0}>
+                        <Show when={msgs.filter((m: any) => m.type === "ai").length === 0}>
+                          <text fg={theme.textMuted}>No AI messages yet</text>
+                        </Show>
+                        <For each={msgs.filter((m: any) => m.type === "ai")}>
+                          {(msg: any) => {
+                            const time = new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+                            return (
+                              <box flexDirection="row" gap={1}>
+                                <text fg={theme.textMuted}>{time}</text>
+                                <text fg={theme.accent}><b>AI</b></text>
+                                <text fg={theme.text}>{msg.body.length > 60 ? msg.body.slice(0, 57) + "..." : msg.body}</text>
+                              </box>
+                            )
+                          }}
+                        </For>
+                      </box>
+                    </scrollbox>
                     <text fg={theme.primary} onMouseUp={async () => {
-                      const result = await DialogPrompt.show(dialog, "Send Message", {
-                        placeholder: "Type your message...",
-                      })
-                      if (result && activeRepo) {
-                        try {
-                          const login = await GitHub.getLogin()
-                          await Collab.sendChat(activeRepo, login ?? "user", result)
-                          await loadChat(activeRepo)
-                        } catch {
-                          toast.show({ message: "Failed to send", variant: "error" })
-                        }
+                      const result = await DialogPrompt.show(dialog, "Ask AI", { placeholder: "Ask the project AI..." })
+                      if (!result || !activeRepo) return
+                      try {
+                        const login = await GitHub.getLogin()
+                        await Collab.sendChat(activeRepo!, login ?? "user", result, "ai")
+                        await loadChat(activeRepo!)
+                      } catch {
+                        toast.show({ message: "Failed", variant: "error" })
                       }
-                    }}><b>➤ Message...</b></text>
+                    }}><b>➤ Ask AI...</b></text>
+                  </Show>
+
+                  <Show when={activeProjTab === "aiai"}>
+                    <text fg={theme.accent}><b>AI Task Board</b></text>
+                    <Show when={tasks.length === 0}>
+                      <text fg={theme.textMuted}>No AI tasks yet</text>
+                    </Show>
+                    <For each={tasks}>
+                      {(task: any) => (
+                        <box flexDirection="row" gap={1}>
+                          <text fg={task.status === "pending" ? theme.warning : theme.success}>{task.status}</text>
+                          <text fg={theme.textMuted}>{"@"}{task.fromUser}</text>
+                          <text fg={theme.text}>{(task.task?.length ?? 0) > 50 ? task.task.slice(0, 47) + "..." : task.task}</text>
+                        </box>
+                      )}
+                    </For>
                     <text fg={theme.accent} onMouseUp={async () => {
-                      const result = await DialogPrompt.show(dialog, "AI Task", {
-                        placeholder: "Task for the other user's AI...",
-                      })
-                      if (result && activeRepo) {
-                        try {
-                          const login = await GitHub.getLogin()
-                          await Collab.sendAiRequest(activeRepo, login ?? "user", result)
-                          toast.show({ message: "AI task sent!", variant: "success" })
-                        } catch {
-                          toast.show({ message: "Failed to send AI task", variant: "error" })
-                        }
+                      const result = await DialogPrompt.show(dialog, "AI Task", { placeholder: "Task for the other AI..." })
+                      if (!result || !activeRepo) return
+                      try {
+                        const login = await GitHub.getLogin()
+                        await Collab.sendAiRequest(activeRepo!, login ?? "user", result)
+                        toast.show({ message: "AI task sent!", variant: "success" })
+                        await loadChat(activeRepo!)
+                      } catch {
+                        toast.show({ message: "Failed", variant: "error" })
                       }
-                    }}><b>⚡ AI task...</b></text>
-                    <text fg={theme.primary} onMouseUp={async () => {
-                      if (activeRepo) await loadChat(activeRepo)
-                    }}><b>↻ Refresh</b></text>
+                    }}><b>⚡ New task...</b></text>
                   </Show>
                 </Show>
               </Show>
               <text fg={theme.textMuted}> </text>
-              <text fg={theme.textMuted}>Press Esc to close</text>
+              <text fg={theme.textMuted}>Esc to close</text>
             </box>
           )
         })
