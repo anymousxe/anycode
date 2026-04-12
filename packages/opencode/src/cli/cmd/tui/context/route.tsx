@@ -19,14 +19,7 @@ export type PluginRoute = {
   data?: Record<string, unknown>
 }
 
-export type CollabProjectRoute = {
-  type: "collab-project"
-  repo: string
-  repoName: string
-  members: string[]
-}
-
-export type Route = HomeRoute | SessionRoute | PluginRoute | CollabProjectRoute
+export type Route = HomeRoute | SessionRoute | PluginRoute
 
 export const { use: useRoute, provider: RouteProvider } = createSimpleContext({
   name: "Route",

@@ -42,7 +42,6 @@ import { KeybindProvider, useKeybind } from "@tui/context/keybind"
 import { ThemeProvider, useTheme } from "@tui/context/theme"
 import { Home } from "@tui/routes/home"
 import { Session } from "@tui/routes/session"
-import { CollabProject } from "@tui/routes/collab-project"
 import { PromptHistoryProvider } from "./component/prompt/history"
 import { FrecencyProvider } from "./component/prompt/frecency"
 import { PromptStashProvider } from "./component/prompt/stash"
@@ -973,24 +972,20 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
                   <For each={collabRepos}>
                     {(repo: any) => (
                       <box flexDirection="row" gap={1}>
-                        <text fg={theme.primary} onMouseUp={() => {
-                          dialog.clear()
-                          route.navigate({
-                            type: "collab-project",
-                            repo: repo.full_name,
-                            repoName: repo.name,
-                            members: repo.members ?? [],
-                          })
-                        }}><b>{shortRepo(repo.name)}</b></text>
+                        <text fg={theme.textMuted}>{shortRepo(repo.name)}</text>
                         <text fg={theme.textMuted}>{(repo.members ?? []).map((m: string) => `@${m}`).join(" ")}</text>
-                        <text fg={theme.success} onMouseUp={() => {
+                        <text fg={theme.success} onMouseUp={async () => {
                           dialog.clear()
-                          route.navigate({
-                            type: "collab-project",
+                          local.collab.set({
                             repo: repo.full_name,
                             repoName: repo.name,
                             members: repo.members ?? [],
+                            tab: "team",
                           })
+                          const s = await sdk.client.session.create({
+                            title: `Collab: ${repo.name}`,
+                          })
+                          if (s.data?.id) route.navigate({ type: "session", sessionID: s.data.id })
                         }}><b>[Join]</b></text>
                         <text fg={theme.error} onMouseUp={async () => {
                           const ok = await DialogConfirm.show(dialog, "Delete", `Delete ${repo.name}?`)
@@ -1236,9 +1231,6 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
           </Match>
           <Match when={route.data.type === "session"}>
             <Session />
-          </Match>
-          <Match when={route.data.type === "collab-project"}>
-            <CollabProject />
           </Match>
         </Switch>
       </Show>

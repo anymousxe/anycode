@@ -416,10 +416,28 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       }
     })
 
+    const [collabInfo, setCollabInfo] = createSignal<{
+      repo: string
+      repoName: string
+      members: string[]
+      tab: "team" | "ai" | "aiai"
+    } | null>(null)
+
+    const collab = {
+      info: collabInfo,
+      set: setCollabInfo,
+      clear: () => setCollabInfo(null),
+      setTab: (tab: "team" | "ai" | "aiai") => {
+        const info = collabInfo()
+        if (info) setCollabInfo({ ...info, tab })
+      },
+    }
+
     const result = {
       model,
       agent,
       mcp,
+      collab,
     }
     return result
   },

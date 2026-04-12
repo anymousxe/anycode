@@ -1,5 +1,5 @@
 import { useSync } from "@tui/context/sync"
-import { createMemo, Show } from "solid-js"
+import { createMemo, Show, For } from "solid-js"
 import { useTheme } from "../../context/theme"
 import { useTuiConfig } from "../../context/tui-config"
 import { Installation } from "@/installation"
@@ -7,7 +7,11 @@ import { TuiPluginRuntime } from "../../plugin"
 
 import { getScrollAcceleration } from "../../util/scroll"
 
+import { Collab, GitHub } from "@/collab"
+import { useLocal } from "@tui/context/local"
+
 export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
+  const local = useLocal()
   const sync = useSync()
   const { theme } = useTheme()
   const tuiConfig = useTuiConfig()
@@ -37,6 +41,21 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
           }}
         >
           <box flexShrink={0} gap={1} paddingRight={1}>
+            <Show when={local.collab.info()}>
+              <text fg={theme.text}><b>Collab Members</b></text>
+              <For each={local.collab.info()!.members}>
+                {(m: string) => {
+                  const isMe = m.toLowerCase() === (local.collab.info()!.members.length > 0 ? "" : "")
+                  return (
+                    <box flexDirection="row" gap={1}>
+                      <text fg={theme.primary}>●</text>
+                      <text fg={theme.text}>{"@"}{m}</text>
+                    </box>
+                  )
+                }}
+              </For>
+              <text fg={theme.textMuted}> </text>
+            </Show>
             <TuiPluginRuntime.Slot
               name="sidebar_title"
               mode="single_winner"
