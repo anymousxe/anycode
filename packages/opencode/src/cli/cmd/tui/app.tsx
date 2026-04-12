@@ -42,6 +42,7 @@ import { KeybindProvider, useKeybind } from "@tui/context/keybind"
 import { ThemeProvider, useTheme } from "@tui/context/theme"
 import { Home } from "@tui/routes/home"
 import { Session } from "@tui/routes/session"
+import { CollabProject } from "@tui/routes/collab-project"
 import { PromptHistoryProvider } from "./component/prompt/history"
 import { FrecencyProvider } from "./component/prompt/frecency"
 import { PromptStashProvider } from "./component/prompt/stash"
@@ -798,11 +799,6 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         const [repos, setRepos] = createSignal<any[]>([])
         const [sending, setSending] = createSignal(false)
         const [tab, setTab] = createSignal<"requests" | "chat">("requests")
-        const [chatRepo, setChatRepo] = createSignal<string | null>(null)
-        const [messages, setMessages] = createSignal<any[]>([])
-        const [projTab, setProjTab] = createSignal<"team" | "ai" | "aiai">("team")
-        const [members, setMembers] = createSignal<string[]>([])
-        const [aiTasks, setAiTasks] = createSignal<any[]>([])
 
         try {
           const isLoggedIn = await GitHub.isLoggedIn()
@@ -846,31 +842,6 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
           if (stored) setGhUser(stored)
         }
 
-        const loadChat = async (repo: string) => {
-          try {
-            const [msgs, mems, tasks] = await Promise.all([
-              Collab.getChat(repo),
-              Collab.getMembers(repo),
-              Collab.getAiRequests(repo).catch(() => []),
-            ])
-            setMessages(msgs)
-            setMembers(mems)
-            setAiTasks(Array.isArray(tasks) ? tasks : [])
-          } catch {}
-        }
-
-        const sendTeamMsg = async () => {
-          const result = await DialogPrompt.show(dialog, "Message", { placeholder: "Say something..." })
-          if (!result || !chatRepo()) return
-          try {
-            const login = await GitHub.getLogin()
-            await Collab.sendChat(chatRepo()!, login ?? "user", result, "human")
-            await loadChat(chatRepo()!)
-          } catch {
-            toast.show({ message: "Send failed", variant: "error" })
-          }
-        }
-
         dialog.replace(() => {
           const user = ghUser()
           const loginLower = user?.login?.toLowerCase()
@@ -881,11 +852,6 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
           const sent = allPending.filter((r: any) => r.from?.toLowerCase() === loginLower)
           const collabRepos = repos()
           const activeTab = tab()
-          const activeRepo = chatRepo()
-          const msgs = messages()
-          const activeProjTab = projTab()
-          const projMembers = members()
-          const tasks = aiTasks()
 
           const shortRepo = (name: string) => {
             const s = name?.replace("anycode-collab-", "") ?? name
@@ -903,14 +869,12 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
                   <text fg={theme.success}>●</text>
                   <text fg={theme.text}>{"@"}{user.login}</text>
                 </box>
-                <Show when={!activeRepo}>
-                  <box flexDirection="row" gap={2}>
-                    <text fg={activeTab === "requests" ? theme.primary : theme.textMuted} onMouseUp={() => setTab("requests")}><b>Requests</b></text>
-                    <text fg={activeTab === "chat" ? theme.primary : theme.textMuted} onMouseUp={() => setTab("chat")}><b>Projects</b></text>
-                  </box>
-                </Show>
+                <box flexDirection="row" gap={2}>
+                  <text fg={activeTab === "requests" ? theme.primary : theme.textMuted} onMouseUp={() => setTab("requests")}><b>Requests</b></text>
+                  <text fg={activeTab === "chat" ? theme.primary : theme.textMuted} onMouseUp={() => setTab("chat")}><b>Projects</b></text>
+                </box>
 
-                <Show when={activeTab === "requests" && !activeRepo}>
+                <Show when={activeTab === "requests"}>
                   <text fg={theme.text}><b>Send Request</b></text>
                   <Show when={!sending()}>
                     <text fg={theme.primary} onMouseUp={async () => {
@@ -1001,7 +965,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
                   </Show>
                 </Show>
 
-                <Show when={activeTab === "chat" && !activeRepo}>
+                <Show when={activeTab === "chat"}>
                   <text fg={theme.text}><b>Your Projects</b></text>
                   <Show when={collabRepos.length === 0}>
                     <text fg={theme.textMuted}>No projects yet. Accept a request first!</text>
@@ -1009,9 +973,14 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
                   <For each={collabRepos}>
                     {(repo: any) => (
                       <box flexDirection="row" gap={1}>
-                        <text fg={theme.primary} onMouseUp={async () => {
-                          setChatRepo(repo.full_name)
-                          await loadChat(repo.full_name)
+                        <text fg={theme.primary} onMouseUp={() => {
+                          dialog.clear()
+                          route.navigate({
+                            type: "collab-project",
+                            repo: repo.full_name,
+                            repoName: repo.name,
+                            members: repo.members ?? [],
+                          })
                         }}><b>{shortRepo(repo.name)}</b></text>
                         <text fg={theme.textMuted}>{(repo.members ?? []).map((m: string) => `@${m}`).join(" ")}</text>
                         <text fg={theme.primary} onMouseUp={() => { try { Bun.spawn(["cmd", "/c", "start", repo.html_url]) } catch {} }}><b>[Open]</b></text>
@@ -1029,112 +998,6 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
                       </box>
                     )}
                   </For>
-                </Show>
-
-                <Show when={activeRepo}>
-                  <box flexDirection="row" gap={1}>
-                    <text fg={theme.text}><b>{shortRepo(activeRepo!.split("/")[1] ?? activeRepo!)}</b></text>
-                    <text fg={theme.textMuted} onMouseUp={() => { setChatRepo(null); setProjTab("team") }}><b>[Back]</b></text>
-                    <text fg={theme.primary} onMouseUp={() => { try { Bun.spawn(["cmd", "/c", "start", `https://github.com/${activeRepo}`]) } catch {} }}><b>[GitHub]</b></text>
-                  </box>
-                  <box flexDirection="row" gap={1}>
-                    <text fg={theme.textMuted}>Members:</text>
-                    <For each={projMembers}>
-                      {(m: string) => <text fg={theme.primary}>{"@"}{m}</text>}
-                    </For>
-                  </box>
-                  <box flexDirection="row" gap={2}>
-                    <text fg={activeProjTab === "team" ? theme.primary : theme.textMuted} onMouseUp={() => setProjTab("team")}><b>Team</b></text>
-                    <text fg={activeProjTab === "ai" ? theme.primary : theme.textMuted} onMouseUp={() => setProjTab("ai")}><b>AI</b></text>
-                    <text fg={activeProjTab === "aiai" ? theme.accent : theme.textMuted} onMouseUp={() => setProjTab("aiai")}><b>AI-AI</b></text>
-                  </box>
-
-                  <Show when={activeProjTab === "team"}>
-                    <scrollbox height={10} flexGrow={1}>
-                      <box gap={0}>
-                        <Show when={msgs.filter((m: any) => m.type === "human").length === 0}>
-                          <text fg={theme.textMuted}>No team messages yet</text>
-                        </Show>
-                        <For each={msgs.filter((m: any) => m.type === "human")}>
-                          {(msg: any) => {
-                            const time = new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
-                            return (
-                              <box flexDirection="row" gap={1}>
-                                <text fg={theme.textMuted}>{time}</text>
-                                <text fg={msg.from?.toLowerCase() === loginLower ? theme.success : theme.primary}><b>{msg.from}</b></text>
-                                <text fg={theme.text}>{msg.body.length > 60 ? msg.body.slice(0, 57) + "..." : msg.body}</text>
-                              </box>
-                            )
-                          }}
-                        </For>
-                      </box>
-                    </scrollbox>
-                    <box flexDirection="row" gap={1}>
-                      <text fg={theme.primary} onMouseUp={sendTeamMsg}><b>➤ Type...</b></text>
-                      <text fg={theme.textMuted} onMouseUp={async () => { if (activeRepo) await loadChat(activeRepo) }}><b>↻</b></text>
-                    </box>
-                  </Show>
-
-                  <Show when={activeProjTab === "ai"}>
-                    <scrollbox height={10} flexGrow={1}>
-                      <box gap={0}>
-                        <Show when={msgs.filter((m: any) => m.type === "ai").length === 0}>
-                          <text fg={theme.textMuted}>No AI messages yet</text>
-                        </Show>
-                        <For each={msgs.filter((m: any) => m.type === "ai")}>
-                          {(msg: any) => {
-                            const time = new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
-                            return (
-                              <box flexDirection="row" gap={1}>
-                                <text fg={theme.textMuted}>{time}</text>
-                                <text fg={theme.accent}><b>AI</b></text>
-                                <text fg={theme.text}>{msg.body.length > 60 ? msg.body.slice(0, 57) + "..." : msg.body}</text>
-                              </box>
-                            )
-                          }}
-                        </For>
-                      </box>
-                    </scrollbox>
-                    <text fg={theme.primary} onMouseUp={async () => {
-                      const result = await DialogPrompt.show(dialog, "Ask AI", { placeholder: "Ask the project AI..." })
-                      if (!result || !activeRepo) return
-                      try {
-                        const login = await GitHub.getLogin()
-                        await Collab.sendChat(activeRepo!, login ?? "user", result, "ai")
-                        await loadChat(activeRepo!)
-                      } catch {
-                        toast.show({ message: "Failed", variant: "error" })
-                      }
-                    }}><b>➤ Ask AI...</b></text>
-                  </Show>
-
-                  <Show when={activeProjTab === "aiai"}>
-                    <text fg={theme.accent}><b>AI Task Board</b></text>
-                    <Show when={tasks.length === 0}>
-                      <text fg={theme.textMuted}>No AI tasks yet</text>
-                    </Show>
-                    <For each={tasks}>
-                      {(task: any) => (
-                        <box flexDirection="row" gap={1}>
-                          <text fg={task.status === "pending" ? theme.warning : theme.success}>{task.status}</text>
-                          <text fg={theme.textMuted}>{"@"}{task.fromUser}</text>
-                          <text fg={theme.text}>{(task.task?.length ?? 0) > 50 ? task.task.slice(0, 47) + "..." : task.task}</text>
-                        </box>
-                      )}
-                    </For>
-                    <text fg={theme.accent} onMouseUp={async () => {
-                      const result = await DialogPrompt.show(dialog, "AI Task", { placeholder: "Task for the other AI..." })
-                      if (!result || !activeRepo) return
-                      try {
-                        const login = await GitHub.getLogin()
-                        await Collab.sendAiRequest(activeRepo!, login ?? "user", result)
-                        toast.show({ message: "AI task sent!", variant: "success" })
-                        await loadChat(activeRepo!)
-                      } catch {
-                        toast.show({ message: "Failed", variant: "error" })
-                      }
-                    }}><b>⚡ New task...</b></text>
-                  </Show>
                 </Show>
               </Show>
               <text fg={theme.textMuted}> </text>
@@ -1365,6 +1228,9 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
           </Match>
           <Match when={route.data.type === "session"}>
             <Session />
+          </Match>
+          <Match when={route.data.type === "collab-project"}>
+            <CollabProject />
           </Match>
         </Switch>
       </Show>

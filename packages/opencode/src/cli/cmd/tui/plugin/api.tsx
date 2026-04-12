@@ -97,9 +97,10 @@ function routeCurrent(route: ReturnType<typeof useRoute>): TuiPluginApi["route"]
     }
   }
 
+  const pluginRoute = route.data as any
   return {
-    name: route.data.id,
-    params: route.data.data,
+    name: pluginRoute.id,
+    params: pluginRoute.data,
   }
 }
 
