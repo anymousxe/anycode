@@ -983,7 +983,15 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
                           })
                         }}><b>{shortRepo(repo.name)}</b></text>
                         <text fg={theme.textMuted}>{(repo.members ?? []).map((m: string) => `@${m}`).join(" ")}</text>
-                        <text fg={theme.primary} onMouseUp={() => { try { Bun.spawn(["cmd", "/c", "start", repo.html_url]) } catch {} }}><b>[Open]</b></text>
+                        <text fg={theme.success} onMouseUp={() => {
+                          dialog.clear()
+                          route.navigate({
+                            type: "collab-project",
+                            repo: repo.full_name,
+                            repoName: repo.name,
+                            members: repo.members ?? [],
+                          })
+                        }}><b>[Join]</b></text>
                         <text fg={theme.error} onMouseUp={async () => {
                           const ok = await DialogConfirm.show(dialog, "Delete", `Delete ${repo.name}?`)
                           if (!ok) return
