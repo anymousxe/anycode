@@ -932,18 +932,29 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
                 <text fg={theme.textMuted}> </text>
                 <text fg={theme.text}><b>Shared Repos ({collabRepos.length})</b></text>
                 <For each={collabRepos.slice(0, 5)}>
-                  {(repo: any) => (
-                    <box flexDirection="row" gap={1}>
-                      <text fg={theme.text}>{repo.name}</text>
-                      <text fg={theme.textMuted}>{repo.html_url}</text>
-                      <text fg={theme.error} onMouseUp={async () => {
-                        await Collab.deleteRepo(repo.full_name)
-                        toast.show({ message: `Deleted ${repo.name}`, variant: "info" })
-                        const r2 = await Collab.getCollabRepos()
-                        setRepos(r2)
-                      }}><b>[Delete]</b></text>
-                    </box>
-                  )}
+                  {(repo: any) => {
+                    const short = repo.name?.replace("anycode-collab-", "") ?? repo.name
+                    return (
+                      <box flexDirection="row" gap={1}>
+                        <text fg={theme.text}>{short.length > 20 ? short.slice(0, 18) + ".." : short}</text>
+                        <text fg={theme.primary} onMouseUp={async () => {
+                          try { Bun.spawn(["cmd", "/c", "start", repo.html_url]) } catch {}
+                        }}><b>[Open]</b></text>
+                        <text fg={theme.error} onMouseUp={async () => {
+                          const ok = await DialogConfirm.show(dialog, "Delete Repo", `Delete ${repo.name}?`)
+                          if (!ok) return
+                          try {
+                            await Collab.deleteRepo(repo.full_name)
+                            toast.show({ message: `Deleted`, variant: "info" })
+                            const r2 = await Collab.getCollabRepos()
+                            setRepos(r2)
+                          } catch {
+                            toast.show({ message: "Delete failed", variant: "error" })
+                          }
+                        }}><b>[X]</b></text>
+                      </box>
+                    )
+                  }}
                 </For>
               </Show>
               <text fg={theme.textMuted}> </text>

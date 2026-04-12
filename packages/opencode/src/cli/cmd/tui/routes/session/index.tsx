@@ -532,20 +532,28 @@ export function Session() {
                   <text fg={theme.textMuted}>No shared repos yet. Accept a collab request first!</text>
                 </Show>
                 <For each={repoList.slice(0, 8)}>
-                  {(repo: any) => (
-                    <box flexDirection="row" gap={1}>
-                      <text fg={theme.primary} onMouseUp={async () => {
-                        setChatRepo(repo.full_name)
-                        await loadChat(repo.full_name)
-                      }}><b>{repo.name}</b></text>
-                      <text fg={theme.textMuted}>{repo.description ?? ""}</text>
-                      <text fg={theme.error} onMouseUp={async () => {
-                        await Collab.deleteRepo(repo.full_name)
-                        toast.show({ message: `Deleted ${repo.name}`, variant: "info" })
-                        await loadRepos()
-                      }}><b>[Delete]</b></text>
-                    </box>
-                  )}
+                  {(repo: any) => {
+                    const short = repo.name?.replace("anycode-collab-", "") ?? repo.name
+                    return (
+                      <box flexDirection="row" gap={1}>
+                        <text fg={theme.primary} onMouseUp={async () => {
+                          setChatRepo(repo.full_name)
+                          await loadChat(repo.full_name)
+                        }}><b>{short.length > 25 ? short.slice(0, 23) + ".." : short}</b></text>
+                        <text fg={theme.error} onMouseUp={async () => {
+                          const ok = await DialogConfirm.show(dialog, "Delete Repo", `Delete ${repo.name}?`)
+                          if (!ok) return
+                          try {
+                            await Collab.deleteRepo(repo.full_name)
+                            toast.show({ message: `Deleted`, variant: "info" })
+                            await loadRepos()
+                          } catch {
+                            toast.show({ message: "Delete failed", variant: "error" })
+                          }
+                        }}><b>[X]</b></text>
+                      </box>
+                    )
+                  }}
                 </For>
               </Show>
               <Show when={activeRepo}>
