@@ -34,11 +34,15 @@ interface ChatMessage {
 
 async function collabApi(path: string, opts?: RequestInit) {
   const [token, login] = await Promise.all([GitHub.getToken(), GitHub.getLogin()])
+  if (token && !login) {
+    await GitHub.backfillLogin()
+  }
+  const login2 = login ?? await GitHub.getLogin()
   const res = await fetch(`${COLLAB_URL}${path}`, {
     ...opts,
     headers: {
       Authorization: `Bearer ${token ?? ""}`,
-      "X-GitHub-Login": login ?? "",
+      "X-GitHub-Login": login2 ?? "",
       "Content-Type": "application/json",
       ...(opts?.headers ?? {}),
     },
@@ -71,6 +75,20 @@ export const GitHub = {
   async setLogin(login: string) {
     await fs.mkdir(path.dirname(loginFile), { recursive: true })
     await fs.writeFile(loginFile, login)
+  },
+
+  async backfillLogin() {
+    const token = await GitHub.getToken()
+    if (!token) return
+    try {
+      const res = await fetch("https://api.github.com/user", {
+        headers: { Authorization: `token ${token}`, "User-Agent": "anycode" },
+      })
+      if (res.ok) {
+        const user = await res.json()
+        if (user.login) await GitHub.setLogin(user.login)
+      }
+    } catch {}
   },
 
   async removeToken() {
