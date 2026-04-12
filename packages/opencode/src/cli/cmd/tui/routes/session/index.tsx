@@ -161,6 +161,10 @@ export function Session() {
   const [sidebar, setSidebar] = kv.signal<"auto" | "hide">("sidebar", "auto")
   const [sidebarOpen, setSidebarOpen] = createSignal(false)
   const collabInfo = useLocal().collab.info
+
+  createEffect(on(() => route.sessionID, () => {
+    local.collab.restore(route.sessionID)
+  }))
   const [collabMsgs, setCollabMsgs] = createSignal<any[]>([])
   const [collabTasks, setCollabTasks] = createSignal<any[]>([])
   const [collabLogin, setCollabLogin] = createSignal("")
@@ -1169,7 +1173,7 @@ export function Session() {
                 <text fg={collabInfo()!.tab === "team" ? theme.success : theme.textMuted} onMouseUp={() => local.collab.setTab("team")}><b>Team</b></text>
                 <text fg={collabInfo()!.tab === "ai" ? theme.accent : theme.textMuted} onMouseUp={() => local.collab.setTab("ai")}><b>AI</b></text>
                 <text fg={collabInfo()!.tab === "aiai" ? theme.warning : theme.textMuted} onMouseUp={() => local.collab.setTab("aiai")}><b>AI-AI</b></text>
-                <text fg={theme.textMuted} onMouseUp={() => local.collab.clear()}><b>[Leave]</b></text>
+                <text fg={theme.textMuted} onMouseUp={() => local.collab.clear(route.sessionID)}><b>[Leave]</b></text>
               </box>
             </Show>
             <scrollbox
@@ -1230,7 +1234,7 @@ export function Session() {
                   )}
                 </For>
               </Show>
-              <Show when={!collabInfo() || collabInfo()!.tab !== "team"}>
+              <Show when={!collabInfo() || collabInfo()!.tab === "ai"}>
               <For each={messages()}>
                 {(message, index) => (
                   <Switch>
@@ -1329,24 +1333,6 @@ export function Session() {
               </Show>
             </scrollbox>
             <box flexShrink={0}>
-              <Show when={collabInfo() && collabInfo()!.tab === "team"}>
-                <box flexDirection="row" gap={1} paddingLeft={1} paddingRight={1} paddingTop={0} paddingBottom={0} backgroundColor={theme.backgroundPanel}>
-                  <text fg={theme.success}><b>Team Chat</b></text>
-                  <text fg={theme.textMuted}>{"@"}{collabLogin()}</text>
-                  <text fg={theme.primary} onMouseUp={async () => {
-                    const result = await DialogPrompt.show(dialog, "Team Message", { placeholder: "Say something..." })
-                    if (!result || !collabInfo()) return
-                    try {
-                      await Collab.sendChat(collabInfo()!.repo, collabLogin(), result, "human")
-                      await collabRefresh()
-                      toBottom()
-                    } catch {
-                      toast.show({ message: "Send failed", variant: "error" })
-                    }
-                  }}><b>➤ Send to team</b></text>
-                  <text fg={theme.textMuted} onMouseUp={collabRefresh}><b>↻</b></text>
-                </box>
-              </Show>
               <Show when={collabInfo() && collabInfo()!.tab === "aiai"}>
                 <box flexDirection="row" gap={1} paddingLeft={1} paddingRight={1} paddingTop={0} paddingBottom={0} backgroundColor={theme.backgroundPanel}>
                   <text fg={theme.warning}><b>AI-AI</b></text>
@@ -1392,6 +1378,18 @@ export function Session() {
                     }}
                     sessionID={route.sessionID}
                     right={<TuiPluginRuntime.Slot name="session_prompt_right" session_id={route.sessionID} />}
+                    collabTeamMode={collabInfo()?.tab === "team" ? { login: collabLogin() } : undefined}
+                    onCollabSubmit={async (text: string) => {
+                      const info = collabInfo()
+                      if (!info) return
+                      try {
+                        await Collab.sendChat(info.repo, collabLogin(), text, "human")
+                        await collabRefresh()
+                        toBottom()
+                      } catch {
+                        toast.show({ message: "Send failed", variant: "error" })
+                      }
+                    }}
                   />
                 </TuiPluginRuntime.Slot>
               </Show>

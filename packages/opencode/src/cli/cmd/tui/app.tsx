@@ -976,16 +976,17 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
                         <text fg={theme.textMuted}>{(repo.members ?? []).map((m: string) => `@${m}`).join(" ")}</text>
                         <text fg={theme.success} onMouseUp={async () => {
                           dialog.clear()
+                          const s = await sdk.client.session.create({
+                            title: `Collab: ${repo.name}`,
+                          })
+                          const sid = s.data?.id
                           local.collab.set({
                             repo: repo.full_name,
                             repoName: repo.name,
                             members: repo.members ?? [],
                             tab: "team",
-                          })
-                          const s = await sdk.client.session.create({
-                            title: `Collab: ${repo.name}`,
-                          })
-                          if (s.data?.id) route.navigate({ type: "session", sessionID: s.data.id })
+                          }, sid)
+                          if (sid) route.navigate({ type: "session", sessionID: sid })
                         }}><b>[Join]</b></text>
                         <text fg={theme.error} onMouseUp={async () => {
                           const ok = await DialogConfirm.show(dialog, "Delete", `Delete ${repo.name}?`)

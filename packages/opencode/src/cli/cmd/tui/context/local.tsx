@@ -423,13 +423,58 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       tab: "team" | "ai" | "aiai"
     } | null>(null)
 
+    const collabSessionFile = path.join(Global.Path.state, "collab-sessions.json")
+    const collabSessionState = {
+      pending: false,
+      ready: false,
+      data: {} as Record<string, { repo: string; repoName: string; members: string[] }>,
+    }
+
+    function collabSave() {
+      if (!collabSessionState.ready) {
+        collabSessionState.pending = true
+        return
+      }
+      collabSessionState.pending = false
+      Filesystem.writeJson(collabSessionFile, collabSessionState.data)
+    }
+
+    Filesystem.readJson(collabSessionFile)
+      .then((x: any) => {
+        if (typeof x === "object" && x !== null) collabSessionState.data = x
+      })
+      .catch(() => {})
+      .finally(() => {
+        collabSessionState.ready = true
+        if (collabSessionState.pending) collabSave()
+      })
+
     const collab = {
       info: collabInfo,
-      set: setCollabInfo,
-      clear: () => setCollabInfo(null),
+      set: (info: NonNullable<ReturnType<typeof collabInfo>>, sessionID?: string) => {
+        setCollabInfo(info)
+        if (info && sessionID) {
+          collabSessionState.data[sessionID] = { repo: info.repo, repoName: info.repoName, members: info.members }
+          collabSave()
+        }
+      },
+      clear: (sessionID?: string) => {
+        setCollabInfo(null)
+        if (sessionID) {
+          delete collabSessionState.data[sessionID]
+          collabSave()
+        }
+      },
       setTab: (tab: "team" | "ai" | "aiai") => {
         const info = collabInfo()
         if (info) setCollabInfo({ ...info, tab })
+      },
+      restore: (sessionID: string) => {
+        if (collabInfo()) return
+        const stored = collabSessionState.data[sessionID]
+        if (stored) {
+          setCollabInfo({ ...stored, tab: "ai" })
+        }
       },
     }
 

@@ -52,6 +52,8 @@ export type PromptProps = {
     normal?: string[]
     shell?: string[]
   }
+  collabTeamMode?: { login: string }
+  onCollabSubmit?: (text: string) => Promise<void>
 }
 
 export type PromptRef = {
@@ -597,6 +599,20 @@ export function Prompt(props: PromptProps) {
       exit()
       return
     }
+
+    if (props.collabTeamMode && props.onCollabSubmit) {
+      const text = store.prompt.input.trim()
+      if (!text) return
+      await props.onCollabSubmit(text)
+      history.append({ ...store.prompt, mode: store.mode })
+      input.extmarks.clear()
+      setStore("prompt", { input: "", parts: [] })
+      setStore("extmarkToPartIndex", new Map())
+      props.onSubmit?.()
+      input.clear()
+      return
+    }
+
     const selectedModel = local.model.current()
     if (!selectedModel) {
       promptModelWarning()
@@ -1093,10 +1109,15 @@ export function Prompt(props: PromptProps) {
             />
             <box flexDirection="row" flexShrink={0} paddingTop={1} gap={1} justifyContent="space-between">
               <box flexDirection="row" gap={1}>
-                <text fg={highlight()}>
-                  {store.mode === "shell" ? "Shell" : Locale.titlecase(local.agent.current().name)}{" "}
-                </text>
-                <Show when={store.mode === "normal"}>
+                <Show when={props.collabTeamMode} fallback={
+                  <text fg={highlight()}>
+                    {store.mode === "shell" ? "Shell" : Locale.titlecase(local.agent.current().name)}{" "}
+                  </text>
+                }>
+                  <text fg={theme.success}>Team Chat</text>
+                  <text fg={theme.textMuted}>{"@"}{props.collabTeamMode!.login}</text>
+                </Show>
+                <Show when={store.mode === "normal" && !props.collabTeamMode}>
                   <box flexDirection="row" gap={1}>
                     <text flexShrink={0} fg={keybind.leader ? theme.textMuted : theme.text}>
                       {local.model.parsed().model}
