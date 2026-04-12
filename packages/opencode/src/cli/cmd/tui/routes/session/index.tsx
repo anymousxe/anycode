@@ -49,6 +49,7 @@ import type { TaskTool } from "@/tool/task"
 import type { QuestionTool } from "@/tool/question"
 import type { SkillTool } from "@/tool/skill"
 import { Memory } from "@/memory"
+import { Collab, GitHub } from "@/collab"
 import { useKeyboard, useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
 import { useSDK } from "@tui/context/sdk"
 import { useCommandDialog } from "@tui/component/dialog-command"
@@ -478,6 +479,147 @@ export function Session() {
       },
       onSelect: (dialog) => {
         dialog.replace(() => <DialogModel />)
+      },
+    },
+    {
+      title: "Collaborate",
+      value: "collab.chat",
+      category: "Session",
+      slash: {
+        name: "collaborate",
+        aliases: ["collab"],
+      },
+      onSelect: async (dialog) => {
+        const [repos, setRepos] = createSignal<any[]>([])
+        const [chatRepo, setChatRepo] = createSignal<string | null>(null)
+        const [messages, setMessages] = createSignal<any[]>([])
+        const [chatInput, setChatInput] = createSignal("")
+        const [loading, setLoading] = createSignal(true)
+        const [sending, setSending] = createSignal(false)
+        const [aiTask, setAiTask] = createSignal("")
+
+        const loadRepos = async () => {
+          try {
+            const r = await Collab.getCollabRepos()
+            setRepos(r)
+          } catch {}
+          setLoading(false)
+        }
+
+        const loadChat = async (repo: string) => {
+          try {
+            const msgs = await Collab.getChat(repo)
+            setMessages(msgs)
+          } catch {}
+        }
+
+        await loadRepos()
+
+        dialog.replace(() => {
+          const repoList = repos()
+          const activeRepo = chatRepo()
+          const msgs = messages()
+
+          return (
+            <box gap={1} paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
+              <text fg={theme.text}><b>🤝 Collab Chat</b></text>
+              <Show when={loading()}>
+                <text fg={theme.textMuted}>Loading repos...</text>
+              </Show>
+              <Show when={!loading() && !activeRepo}>
+                <text fg={theme.text}><b>Select a shared repo:</b></text>
+                <Show when={repoList.length === 0}>
+                  <text fg={theme.textMuted}>No shared repos yet. Accept a collab request first!</text>
+                </Show>
+                <For each={repoList.slice(0, 8)}>
+                  {(repo: any) => (
+                    <box flexDirection="row" gap={1}>
+                      <text fg={theme.primary} onMouseUp={async () => {
+                        setChatRepo(repo.full_name)
+                        await loadChat(repo.full_name)
+                      }}><b>{repo.name}</b></text>
+                      <text fg={theme.textMuted}>{repo.description ?? ""}</text>
+                      <text fg={theme.error} onMouseUp={async () => {
+                        await Collab.deleteRepo(repo.full_name)
+                        toast.show({ message: `Deleted ${repo.name}`, variant: "info" })
+                        await loadRepos()
+                      }}><b>[Delete]</b></text>
+                    </box>
+                  )}
+                </For>
+              </Show>
+              <Show when={activeRepo}>
+                <box flexDirection="row" gap={1}>
+                  <text fg={theme.success}><b>Chat:</b></text>
+                  <text fg={theme.text}>{activeRepo}</text>
+                  <text fg={theme.textMuted} onMouseUp={() => setChatRepo(null)}><b>[Back]</b></text>
+                </box>
+                <Show when={msgs.length === 0}>
+                  <text fg={theme.textMuted}>No messages yet. Send one below!</text>
+                </Show>
+                <scrollbox height={12} flexGrow={1}>
+                  <box gap={0}>
+                    <For each={msgs}>
+                      {(msg: any) => {
+                        const isAi = msg.type === "ai"
+                        const time = new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+                        return (
+                          <box flexDirection="row" gap={1}>
+                            <text fg={theme.textMuted}>{time}</text>
+                            <text fg={isAi ? theme.accent : theme.primary}><b>{isAi ? "AI" : msg.from}</b></text>
+                            <text fg={theme.text}>{msg.body}</text>
+                          </box>
+                        )
+                      }}
+                    </For>
+                  </box>
+                </scrollbox>
+                <text fg={theme.textMuted}>──────────────────────────</text>
+                <text fg={theme.primary} onMouseUp={async () => {
+                  const result = await DialogPrompt.show(dialog, "Send Message", {
+                    placeholder: "Type your message...",
+                  })
+                  if (result && activeRepo) {
+                    setSending(true)
+                    try {
+                      const login = await GitHub.getLogin()
+                      await Collab.sendChat(activeRepo, login ?? "user", result)
+                      await loadChat(activeRepo)
+                    } catch {
+                      toast.show({ message: "Failed to send", variant: "error" })
+                    }
+                    setSending(false)
+                  }
+                }}><b>➤ Send message...</b></text>
+                <Show when={sending()}>
+                  <text fg={theme.textMuted}>Sending...</text>
+                </Show>
+                <text fg={theme.textMuted}> </text>
+                <text fg={theme.text}><b>AI-to-AI</b></text>
+                <text fg={theme.accent} onMouseUp={async () => {
+                  const result = await DialogPrompt.show(dialog, "AI Task", {
+                    placeholder: "Describe a task for the other user's AI to pick up...",
+                  })
+                  if (result && activeRepo) {
+                    try {
+                      const login = await GitHub.getLogin()
+                      await Collab.sendAiRequest(activeRepo, login ?? "user", result)
+                      toast.show({ message: "AI task sent!", variant: "success" })
+                    } catch {
+                      toast.show({ message: "Failed to send AI task", variant: "error" })
+                    }
+                  }
+                }}><b>⚡ Send AI task...</b></text>
+                <text fg={theme.textMuted}> </text>
+                <text fg={theme.primary} onMouseUp={async () => {
+                  if (activeRepo) await loadChat(activeRepo)
+                }}><b>↻ Refresh</b></text>
+              </Show>
+              <text fg={theme.textMuted}> </text>
+              <text fg={theme.textMuted}>Press Esc to close</text>
+            </box>
+          )
+        })
       },
     },
 

@@ -936,6 +936,12 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
                     <box flexDirection="row" gap={1}>
                       <text fg={theme.text}>{repo.name}</text>
                       <text fg={theme.textMuted}>{repo.html_url}</text>
+                      <text fg={theme.error} onMouseUp={async () => {
+                        await Collab.deleteRepo(repo.full_name)
+                        toast.show({ message: `Deleted ${repo.name}`, variant: "info" })
+                        const r2 = await Collab.getCollabRepos()
+                        setRepos(r2)
+                      }}><b>[Delete]</b></text>
                     </box>
                   )}
                 </For>

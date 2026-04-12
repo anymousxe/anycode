@@ -219,6 +219,13 @@ export const Collab = {
     } catch { return [] }
   },
 
+  async deleteRepo(repo: string): Promise<any> {
+    return collabApi("/collab/repo", {
+      method: "DELETE",
+      body: JSON.stringify({ repo }),
+    })
+  },
+
   async sendChat(repo: string, from: string, body: string, type: "human" | "ai" = "human"): Promise<ChatMessage> {
     return collabApi("/collab/chat", {
       method: "POST",
