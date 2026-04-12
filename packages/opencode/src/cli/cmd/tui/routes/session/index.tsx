@@ -497,20 +497,45 @@ export function Session() {
         try {
           const isLoggedIn = await GitHub.isLoggedIn()
           if (!isLoggedIn) {
-            const user = await GitHub.login()
-            setGhUser(user)
-          } else {
-            const user = await GitHub.getUser()
-            setGhUser(user)
+            const flow = await GitHub.startDeviceFlow()
+            const [authStatus, setAuthStatus] = createSignal<"waiting" | "success" | "failed">("waiting")
+            let authedUser: any = null
+            GitHub.loginWithFlow(flow).then((user) => {
+              authedUser = user
+              setGhUser(user)
+              setAuthStatus("success")
+            }).catch(() => setAuthStatus("failed"))
+
+            dialog.replace(() => (
+              <box gap={1} paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
+                <text fg={theme.text}><b>🤝 Connect GitHub</b></text>
+                <Show when={authStatus() === "waiting"}>
+                  <text fg={theme.textMuted}>1. Open this link:</text>
+                  <text fg={theme.primary} onMouseUp={() => { try { Bun.spawn(["cmd", "/c", "start", flow.verification_uri]) } catch {} }}><b>{flow.verification_uri}</b></text>
+                  <text fg={theme.textMuted}>2. Enter this code:</text>
+                  <text fg={theme.warning}><b>{flow.user_code}</b></text>
+                  <text fg={theme.textMuted}>Waiting for authorization...</text>
+                </Show>
+                <Show when={authStatus() === "success"}>
+                  <text fg={theme.success}>Connected as @{authedUser?.login}! Reopen /collaborate to continue.</text>
+                </Show>
+                <Show when={authStatus() === "failed"}>
+                  <text fg={theme.error}>Authorization failed. Press Esc to close.</text>
+                </Show>
+              </box>
+            ))
+            return
           }
+          const user = await GitHub.getUser()
+          setGhUser(user)
           const [reqs, collabRepos] = await Promise.all([Collab.getRequests(), Collab.getCollabRepos()])
-          setRequests(reqs)
-          setRepos(collabRepos)
+          setRequests(Array.isArray(reqs) ? reqs : [])
+          setRepos(Array.isArray(collabRepos) ? collabRepos : [])
         } catch {}
 
         dialog.replace(() => {
           const user = ghUser()
-          const reqs = requests().filter((r: any) => r.status === "pending")
+          const reqs = (requests() ?? []).filter((r: any) => r.status === "pending")
           const collabRepos = repos()
 
           return (

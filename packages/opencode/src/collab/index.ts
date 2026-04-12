@@ -63,12 +63,16 @@ export const GitHub = {
 
   async isLoggedIn(): Promise<boolean> {
     const token = await GitHub.getToken()
-    if (!token) return false
+    if (!token || token.length < 10) return false
     try {
       const res = await fetch("https://api.github.com/user", {
         headers: { Authorization: `token ${token}`, "User-Agent": "anycode" },
       })
-      return res.ok
+      if (!res.ok) {
+        await GitHub.removeToken()
+        return false
+      }
+      return true
     } catch { return false }
   },
 
@@ -99,10 +103,7 @@ export const GitHub = {
     return res.json()
   },
 
-  async login(): Promise<GitHubUser> {
-    const flow = await GitHub.startDeviceFlow()
-    process.stderr.write(`\n  To connect GitHub:\n  1. Open: ${flow.verification_uri}\n  2. Enter code: ${flow.user_code}\n\n`)
-
+  async loginWithFlow(flow: { device_code: string; interval: number; expires_in: number }): Promise<GitHubUser> {
     const interval = flow.interval * 1000
     const deadline = Date.now() + flow.expires_in * 1000
 

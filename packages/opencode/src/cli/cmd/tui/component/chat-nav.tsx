@@ -85,13 +85,40 @@ export function ChatNav() {
   const loadGitHub = async () => {
     setGhLoading(true)
     try {
-      if (!(await GitHub.isLoggedIn())) {
-        const user = await GitHub.login()
-        setGhProfile(user)
-      } else {
+      if (await GitHub.isLoggedIn()) {
         const user = await GitHub.getUser()
         setGhProfile(user)
+        setGhLoading(false)
+        return
       }
+      const flow = await GitHub.startDeviceFlow()
+      dialog.replace(() => {
+        const [status, setStatus] = createSignal<"waiting" | "success" | "failed">("waiting")
+        GitHub.loginWithFlow(flow).then((user) => {
+          setGhProfile(user)
+          setStatus("success")
+          setTimeout(() => openSettings(), 1000)
+        }).catch(() => setStatus("failed"))
+        return (
+          <box gap={1} paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
+            <text fg={theme.text}><b>Connect GitHub</b></text>
+            <Show when={status() === "waiting"}>
+              <text fg={theme.textMuted}>1. Open this link:</text>
+              <text fg={theme.primary} onMouseUp={() => { try { Bun.spawn(["cmd", "/c", "start", flow.verification_uri]) } catch {} }}><b>{flow.verification_uri}</b></text>
+              <text fg={theme.textMuted}>2. Enter this code:</text>
+              <text fg={theme.warning}><b>{flow.user_code}</b></text>
+              <text fg={theme.textMuted}>Waiting for authorization...</text>
+            </Show>
+            <Show when={status() === "success"}>
+              <text fg={theme.success}>Connected! Returning to settings...</text>
+            </Show>
+            <Show when={status() === "failed"}>
+              <text fg={theme.error}>Authorization failed or expired.</text>
+              <text fg={theme.textMuted}>Press Esc to close</text>
+            </Show>
+          </box>
+        )
+      })
     } catch {
       setGhProfile(null)
     }
