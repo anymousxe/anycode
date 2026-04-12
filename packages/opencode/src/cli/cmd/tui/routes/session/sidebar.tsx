@@ -65,6 +65,9 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                 <b>Code</b>
               </span>{" "}
               <span>{Installation.VERSION}</span>
+              <Show when={process.env.ANYCODE_DEV === "1"}>
+                <span style={{ fg: theme.warning }}> DEV</span>
+              </Show>
             </text>
           </TuiPluginRuntime.Slot>
         </box>

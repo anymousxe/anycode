@@ -81,11 +81,18 @@ const cli = yargs(args)
     type: "string",
     choices: ["DEBUG", "INFO", "WARN", "ERROR"],
   })
+  .option("dev", {
+    describe: "run in dev mode (debug logs, separate database, no auto-update)",
+    type: "boolean",
+  })
   .option("pure", {
     describe: "run without external plugins",
     type: "boolean",
   })
   .middleware(async (opts) => {
+    if (opts.dev) {
+      process.env.ANYCODE_DEV = "1"
+    }
     if (opts.pure) {
       process.env.OPENCODE_PURE = "1"
     }

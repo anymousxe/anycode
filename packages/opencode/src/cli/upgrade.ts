@@ -7,6 +7,7 @@ import { Log } from "@/util/log"
 const log = Log.create({ service: "upgrade" })
 
 export async function upgrade() {
+  if (process.env.ANYCODE_DEV === "1") return
   const config = await Config.getGlobal()
   const method = await Installation.method()
   const latest = await Installation.latest(method).catch((err) => {
