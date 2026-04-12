@@ -19,7 +19,7 @@ interface CollabRequest {
   id: string
   from: string
   to: string
-  status: "pending" | "accepted" | "declined"
+  status: "pending" | "accepted" | "declined" | "cancelled"
   repo?: string
   createdAt: number
 }
@@ -159,6 +159,13 @@ export const Collab = {
     return collabApi("/collab/respond", {
       method: "POST",
       body: JSON.stringify({ id, action }),
+    })
+  },
+
+  async cancelRequest(id: string): Promise<CollabRequest> {
+    return collabApi("/collab/cancel", {
+      method: "POST",
+      body: JSON.stringify({ id }),
     })
   },
 

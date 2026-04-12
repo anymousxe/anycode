@@ -913,7 +913,15 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
                     {(req: any) => (
                       <box flexDirection="row" gap={1}>
                         <text fg={theme.textMuted}>→ @{req.to}</text>
-                        <text fg={theme.warning}>{req.status}</text>
+                        <text fg={req.status === "pending" ? theme.warning : theme.textMuted}>{req.status}</text>
+                        <Show when={req.status === "pending"}>
+                          <text fg={theme.error} onMouseUp={async () => {
+                            await Collab.cancelRequest(req.id)
+                            toast.show({ message: `Cancelled request to @${req.to}`, variant: "info" })
+                            const reqs2 = await Collab.getRequests()
+                            setRequests(Array.isArray(reqs2) ? reqs2 : [])
+                          }}><b>[Cancel]</b></text>
+                        </Show>
                       </box>
                     )}
                   </For>
