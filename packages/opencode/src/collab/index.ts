@@ -68,12 +68,13 @@ export const GitHub = {
       const res = await fetch("https://api.github.com/user", {
         headers: { Authorization: `token ${token}`, "User-Agent": "anycode" },
       })
-      if (!res.ok) {
+      if (res.status === 401) {
         await GitHub.removeToken()
         return false
       }
+      if (!res.ok) return true
       return true
-    } catch { return false }
+    } catch { return true }
   },
 
   async getUser(): Promise<GitHubUser> {
