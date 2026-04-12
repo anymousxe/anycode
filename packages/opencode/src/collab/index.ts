@@ -1,4 +1,11 @@
+import path from "path"
+import fs from "fs/promises"
+import { Global } from "@/global"
+import { Log } from "@/util/log"
+
 const COLLAB_URL = "https://anycode-collab.anymousxe-info.workers.dev"
+const tokenFile = path.join(Global.Path.data, "github-token")
+const logger = Log.create()
 
 interface GitHubUser {
   login: string
@@ -25,11 +32,12 @@ interface ChatMessage {
   type: "human" | "ai"
 }
 
-async function api(path: string, opts?: RequestInit) {
+async function collabApi(path: string, opts?: RequestInit) {
+  const token = await GitHub.getToken()
   const res = await fetch(`${COLLAB_URL}${path}`, {
     ...opts,
     headers: {
-      Authorization: "Bearer anycode",
+      Authorization: `Bearer ${token ?? ""}`,
       "Content-Type": "application/json",
       ...(opts?.headers ?? {}),
     },
@@ -37,68 +45,149 @@ async function api(path: string, opts?: RequestInit) {
   return res.json()
 }
 
+export const GitHub = {
+  async getToken(): Promise<string | null> {
+    try {
+      return (await fs.readFile(tokenFile, "utf-8")).trim()
+    } catch { return null }
+  },
+
+  async setToken(token: string) {
+    await fs.mkdir(path.dirname(tokenFile), { recursive: true })
+    await fs.writeFile(tokenFile, token, { mode: 0o600 })
+  },
+
+  async removeToken() {
+    try { await fs.unlink(tokenFile) } catch {}
+  },
+
+  async isLoggedIn(): Promise<boolean> {
+    const token = await GitHub.getToken()
+    if (!token) return false
+    try {
+      const res = await fetch("https://api.github.com/user", {
+        headers: { Authorization: `token ${token}`, "User-Agent": "anycode" },
+      })
+      return res.ok
+    } catch { return false }
+  },
+
+  async getUser(): Promise<GitHubUser> {
+    const token = await GitHub.getToken()
+    if (!token) throw new Error("Not logged in")
+    const res = await fetch("https://api.github.com/user", {
+      headers: { Authorization: `token ${token}`, "User-Agent": "anycode" },
+    })
+    if (!res.ok) throw new Error("GitHub auth failed")
+    return res.json()
+  },
+
+  async startDeviceFlow(): Promise<{ device_code: string; user_code: string; verification_uri: string; interval: number; expires_in: number }> {
+    const res = await fetch(`${COLLAB_URL}/auth/device`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    })
+    return res.json()
+  },
+
+  async pollDeviceToken(device_code: string): Promise<{ access_token: string; user: { login: string; avatar_url: string; name: string } } | { error: string }> {
+    const res = await fetch(`${COLLAB_URL}/auth/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_code }),
+    })
+    return res.json()
+  },
+
+  async login(): Promise<GitHubUser> {
+    const flow = await GitHub.startDeviceFlow()
+    process.stderr.write(`\n  To connect GitHub:\n  1. Open: ${flow.verification_uri}\n  2. Enter code: ${flow.user_code}\n\n`)
+
+    const interval = flow.interval * 1000
+    const deadline = Date.now() + flow.expires_in * 1000
+
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, interval))
+      const result = await GitHub.pollDeviceToken(flow.device_code)
+      if ("access_token" in result) {
+        await GitHub.setToken(result.access_token)
+        const user = await GitHub.getUser()
+        return user
+      }
+      if (result.error !== "authorization_pending" && result.error !== "slow_down") {
+        throw new Error(`Auth failed: ${result.error}`)
+      }
+    }
+    throw new Error("Device flow expired")
+  },
+
+  async logout() {
+    await GitHub.removeToken()
+  },
+}
+
 export const Collab = {
   async getUser(): Promise<GitHubUser> {
-    return api("/github/user")
+    return GitHub.getUser()
   },
 
   async getRepos(): Promise<any[]> {
-    return api("/github/repos")
+    return collabApi("/github/repos")
   },
 
   async createRepo(name: string, opts?: { private?: boolean; description?: string }): Promise<any> {
-    return api("/github/repos", {
+    return collabApi("/github/repos", {
       method: "POST",
       body: JSON.stringify({ name, ...opts }),
     })
   },
 
   async sendRequest(to: string): Promise<CollabRequest> {
-    return api("/collab/request", {
+    return collabApi("/collab/request", {
       method: "POST",
       body: JSON.stringify({ to }),
     })
   },
 
   async getRequests(): Promise<CollabRequest[]> {
-    return api("/collab/requests")
+    return collabApi("/collab/requests")
   },
 
   async respondRequest(id: string, action: "accepted" | "declined"): Promise<CollabRequest> {
-    return api("/collab/respond", {
+    return collabApi("/collab/respond", {
       method: "POST",
       body: JSON.stringify({ id, action }),
     })
   },
 
   async getCollabRepos(): Promise<any[]> {
-    return api("/collab/repos")
+    return collabApi("/collab/repos")
   },
 
   async sendChat(repo: string, from: string, body: string, type: "human" | "ai" = "human"): Promise<ChatMessage> {
-    return api("/collab/chat", {
+    return collabApi("/collab/chat", {
       method: "POST",
       body: JSON.stringify({ repo, from, body, type }),
     })
   },
 
   async getChat(repo: string): Promise<ChatMessage[]> {
-    return api(`/collab/chat?repo=${encodeURIComponent(repo)}`)
+    return collabApi(`/collab/chat?repo=${encodeURIComponent(repo)}`)
   },
 
   async sendAiRequest(repo: string, fromUser: string, task: string): Promise<any> {
-    return api("/collab/ai-request", {
+    return collabApi("/collab/ai-request", {
       method: "POST",
       body: JSON.stringify({ repo, fromUser, task }),
     })
   },
 
   async getAiRequests(repo: string): Promise<any[]> {
-    return api(`/collab/ai-requests?repo=${encodeURIComponent(repo)}`)
+    return collabApi(`/collab/ai-requests?repo=${encodeURIComponent(repo)}`)
   },
 
   async respondAiRequest(repo: string, id: string, action: "accepted" | "declined"): Promise<any> {
-    return api("/collab/ai-respond", {
+    return collabApi("/collab/ai-respond", {
       method: "POST",
       body: JSON.stringify({ repo, id, action }),
     })

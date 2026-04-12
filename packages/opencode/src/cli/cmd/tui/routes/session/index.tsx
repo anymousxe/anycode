@@ -49,7 +49,7 @@ import type { TaskTool } from "@/tool/task"
 import type { QuestionTool } from "@/tool/question"
 import type { SkillTool } from "@/tool/skill"
 import { Memory } from "@/memory"
-import { Collab } from "@/collab"
+import { Collab, GitHub } from "@/collab"
 import { useKeyboard, useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
 import { useSDK } from "@tui/context/sdk"
 import { useCommandDialog } from "@tui/component/dialog-command"
@@ -495,8 +495,14 @@ export function Session() {
         const [sending, setSending] = createSignal(false)
 
         try {
-          const user = await Collab.getUser()
-          setGhUser(user)
+          const isLoggedIn = await GitHub.isLoggedIn()
+          if (!isLoggedIn) {
+            const user = await GitHub.login()
+            setGhUser(user)
+          } else {
+            const user = await GitHub.getUser()
+            setGhUser(user)
+          }
           const [reqs, collabRepos] = await Promise.all([Collab.getRequests(), Collab.getCollabRepos()])
           setRequests(reqs)
           setRepos(collabRepos)

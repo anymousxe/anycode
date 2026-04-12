@@ -12,7 +12,7 @@ import { Memory } from "@/memory"
 import { Global } from "@/global"
 import { Installation } from "@/installation"
 import { useLocal } from "@tui/context/local"
-import { Collab } from "@/collab"
+import { GitHub } from "@/collab"
 
 interface GitHubProfile {
   login: string
@@ -85,8 +85,13 @@ export function ChatNav() {
   const loadGitHub = async () => {
     setGhLoading(true)
     try {
-      const user = await Collab.getUser()
-      setGhProfile(user)
+      if (!(await GitHub.isLoggedIn())) {
+        const user = await GitHub.login()
+        setGhProfile(user)
+      } else {
+        const user = await GitHub.getUser()
+        setGhProfile(user)
+      }
     } catch {
       setGhProfile(null)
     }
