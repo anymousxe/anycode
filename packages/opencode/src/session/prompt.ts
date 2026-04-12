@@ -49,6 +49,7 @@ import { InstanceState } from "@/effect/instance-state"
 import { makeRuntime } from "@/effect/run-service"
 import { TaskTool, type TaskPromptOps } from "@/tool/task"
 import { SessionRunState } from "./run-state"
+import { runPromiseLogged, runForkLogged } from "@/effect/run"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -358,7 +359,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           agent: input.agent.name,
           messages: input.messages,
           metadata: (val) =>
-            Effect.runPromise(
+            runPromiseLogged(
               input.processor.updateToolCall(options.toolCallId, (match) => {
                 if (!["running", "pending"].includes(match.state.status)) return match
                 return {
@@ -374,7 +375,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               }),
             ),
           ask: (req) =>
-            Effect.runPromise(
+            runPromiseLogged(
               permission.ask({
                 ...req,
                 sessionID: input.session.id,
@@ -395,7 +396,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
             description: item.description,
             inputSchema: jsonSchema(schema as any),
             execute(args, options) {
-              return Effect.runPromise(
+              return runPromiseLogged(
                 Effect.gen(function* () {
                   const ctx = context(args, options)
                   yield* plugin.trigger(
@@ -436,7 +437,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           const transformed = ProviderTransform.schema(input.model, schema)
           item.inputSchema = jsonSchema(transformed)
           item.execute = (args, opts) =>
-            Effect.runPromise(
+            runPromiseLogged(
               Effect.gen(function* () {
                 const ctx = context(args, opts)
                 yield* plugin.trigger(
@@ -587,7 +588,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               extra: { bypassAgentCheck: true, promptOps },
               messages: msgs,
               metadata(val: { title?: string; metadata?: Record<string, any> }) {
-                return Effect.runPromise(
+                return runPromiseLogged(
                   Effect.gen(function* () {
                     part = yield* sessions.updatePart({
                       ...part,
@@ -598,7 +599,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                 )
               },
               ask(req: any) {
-                return Effect.runPromise(
+                return runPromiseLogged(
                   permission.ask({
                     ...req,
                     sessionID,
@@ -855,7 +856,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               output += chunk
               if (part.state.status === "running") {
                 part.state.metadata = { output, description: "" }
-                void Effect.runFork(sessions.updatePart(part))
+                void runForkLogged(sessions.updatePart(part))
               }
             }),
           )
@@ -1655,9 +1656,9 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       })
 
       const promptOps: TaskPromptOps = {
-        cancel: (sessionID) => Effect.runFork(cancel(sessionID)),
-        resolvePromptParts: (template) => Effect.runPromise(resolvePromptParts(template)),
-        prompt: (input) => Effect.runPromise(prompt(input)),
+        cancel: (sessionID) => runForkLogged(cancel(sessionID)),
+        resolvePromptParts: (template) => runPromiseLogged(resolvePromptParts(template)),
+        prompt: (input) => runPromiseLogged(prompt(input)),
       }
 
       return Service.of({

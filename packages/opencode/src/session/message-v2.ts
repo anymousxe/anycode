@@ -3,6 +3,7 @@ import { SessionID, MessageID, PartID } from "./schema"
 import z from "zod"
 import { NamedError } from "@opencode-ai/util/error"
 import { APICallError, convertToModelMessages, LoadAPIKeyError, type ModelMessage, type UIMessage } from "ai"
+import { runPromiseLogged } from "@/effect/run"
 import { LSP } from "../lsp"
 import { Snapshot } from "@/snapshot"
 import { SyncEvent } from "../sync"
@@ -839,7 +840,7 @@ export namespace MessageV2 {
     model: Provider.Model,
     options?: { stripMedia?: boolean },
   ): Promise<ModelMessage[]> {
-    return Effect.runPromise(toModelMessagesEffect(input, model, options))
+    return runPromiseLogged(toModelMessagesEffect(input, model, options))
   }
 
   export function page(input: { sessionID: SessionID; limit: number; before?: string }) {
