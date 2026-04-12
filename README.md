@@ -4,26 +4,24 @@ A terminal-based AI coding agent with persistent memory, custom modes, and auton
 
 ## Install
 
-### Windows
+### Windows (one-line)
 
-```
-curl -fsSL -o "%USERPROFILE%\.local\bin\anycode.exe" "https://github.com/anymousxe/anycode/releases/latest/download/anycode.exe"
-```
-
-Then add to PATH (one time):
-```
-powershell -Command "[Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path','User') + ';%USERPROFILE%\.local\bin', 'User')"
+```powershell
+mkdir "$env:USERPROFILE\.local\bin" -Force; Invoke-WebRequest -Uri "https://github.com/anymousxe/anycode/releases/latest/download/anycode.exe" -OutFile "$env:USERPROFILE\.local\bin\anycode.exe"; [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path","User") + ";$env:USERPROFILE\.local\bin", "User")
 ```
 
 Close and reopen your terminal, then run `anycode`.
 
+Or download and run the installer:
+```
+powershell -Command "Invoke-WebRequest -Uri 'https://github.com/anymousxe/anycode/raw/main/install.bat' -OutFile install.bat"; install.bat
+```
+
 ### macOS / Linux
 
 ```
-curl -fsSL -o ~/.local/bin/anycode "https://github.com/anymousxe/anycode/releases/latest/download/anycode.exe" && chmod +x ~/.local/bin/anycode
+curl -fsSL https://github.com/anymousxe/anycode/raw/main/install.sh | bash
 ```
-
-Then run `anycode`.
 
 ### Build from source
 
