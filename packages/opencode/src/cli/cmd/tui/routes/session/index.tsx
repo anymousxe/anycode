@@ -490,6 +490,12 @@ export function Session() {
         aliases: ["collab"],
       },
       onSelect: async (dialog) => {
+        const isLoggedIn = await GitHub.isLoggedIn()
+        if (!isLoggedIn) {
+          toast.show({ message: "Connect GitHub in Settings (⚙) first", variant: "warning" })
+          dialog.clear()
+          return
+        }
         const [repos, setRepos] = createSignal<any[]>([])
         const [chatRepo, setChatRepo] = createSignal<string | null>(null)
         const [messages, setMessages] = createSignal<any[]>([])
@@ -559,7 +565,7 @@ export function Session() {
               <Show when={activeRepo}>
                 <box flexDirection="row" gap={1}>
                   <text fg={theme.success}><b>Chat:</b></text>
-                  <text fg={theme.text}>{activeRepo}</text>
+                  <text fg={theme.text}>{(activeRepo ?? "").length > 40 ? activeRepo!.slice(0, 37) + "..." : activeRepo}</text>
                   <text fg={theme.textMuted} onMouseUp={() => setChatRepo(null)}><b>[Back]</b></text>
                 </box>
                 <Show when={msgs.length === 0}>
@@ -575,7 +581,7 @@ export function Session() {
                           <box flexDirection="row" gap={1}>
                             <text fg={theme.textMuted}>{time}</text>
                             <text fg={isAi ? theme.accent : theme.primary}><b>{isAi ? "AI" : msg.from}</b></text>
-                            <text fg={theme.text}>{msg.body}</text>
+                            <text fg={theme.text}>{msg.body.length > 80 ? msg.body.slice(0, 77) + "..." : msg.body}</text>
                           </box>
                         )
                       }}

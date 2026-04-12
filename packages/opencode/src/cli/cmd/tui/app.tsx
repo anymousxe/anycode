@@ -893,6 +893,8 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
                     <box flexDirection="row" gap={1}>
                       <text fg={theme.text}>@{req.from}</text>
                       <text fg={theme.success} onMouseUp={async () => {
+                        const ok = await DialogConfirm.show(dialog, "Accept", `Accept collab request from @${req.from}?`)
+                        if (!ok) return
                         await Collab.respondRequest(req.id, "accepted")
                         toast.show({ message: `Accepted @${req.from}!`, variant: "success" })
                         const reqs2 = await Collab.getRequests()
