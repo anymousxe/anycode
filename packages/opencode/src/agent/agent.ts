@@ -191,6 +191,7 @@ export namespace Agent {
                 Permission.fromConfig({
                   question: "allow",
                   plan_enter: "allow",
+                  memory: "allow",
                 }),
                 user,
               ),
@@ -206,6 +207,7 @@ export namespace Agent {
                 Permission.fromConfig({
                   question: "allow",
                   plan_exit: "allow",
+                  memory: "allow",
                   external_directory: {
                     [path.join(Global.Path.data, "plans", "*")]: "allow",
                   },
