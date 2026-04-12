@@ -29,3 +29,7 @@ UPCOMING_CHANGELOG.md
 logs/
 *.bun-build
 tsconfig.tsbuildinfo
+.env
+.env
+.env.local
+.env.*

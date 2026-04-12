@@ -49,6 +49,7 @@ import type { TaskTool } from "@/tool/task"
 import type { QuestionTool } from "@/tool/question"
 import type { SkillTool } from "@/tool/skill"
 import { Memory } from "@/memory"
+import { Collab } from "@/collab"
 import { useKeyboard, useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
 import { useSDK } from "@tui/context/sdk"
 import { useCommandDialog } from "@tui/component/dialog-command"
@@ -478,6 +479,111 @@ export function Session() {
       },
       onSelect: (dialog) => {
         dialog.replace(() => <DialogModel />)
+      },
+    },
+    {
+      title: "Collaborate",
+      value: "collab.menu",
+      category: "Session",
+      slash: {
+        name: "collaborate",
+      },
+      onSelect: async (dialog) => {
+        const [ghUser, setGhUser] = createSignal<any>(null)
+        const [requests, setRequests] = createSignal<any[]>([])
+        const [repos, setRepos] = createSignal<any[]>([])
+        const [sending, setSending] = createSignal(false)
+
+        try {
+          const user = await Collab.getUser()
+          setGhUser(user)
+          const [reqs, collabRepos] = await Promise.all([Collab.getRequests(), Collab.getCollabRepos()])
+          setRequests(reqs)
+          setRepos(collabRepos)
+        } catch {}
+
+        dialog.replace(() => {
+          const user = ghUser()
+          const reqs = requests().filter((r: any) => r.status === "pending")
+          const collabRepos = repos()
+
+          return (
+            <box gap={1} paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1}>
+              <text fg={theme.text}><b>🤝 Collaborate</b></text>
+              <Show when={!user}>
+                <text fg={theme.textMuted}>Connect GitHub in Settings (⚙) first</text>
+              </Show>
+              <Show when={user}>
+                <box flexDirection="row" gap={1}>
+                  <text fg={theme.success}>●</text>
+                  <text fg={theme.text}>@{user.login}</text>
+                </box>
+                <text fg={theme.textMuted}> </text>
+                <text fg={theme.text}><b>Send Request</b></text>
+                <Show when={!sending()}>
+                  <text fg={theme.primary} onMouseUp={async () => {
+                    const result = await DialogPrompt.show(dialog, "Send Collab Request", {
+                      placeholder: "Enter GitHub username...",
+                    })
+                    if (result) {
+                      setSending(true)
+                      try {
+                        await Collab.sendRequest(result.trim())
+                        toast.show({ message: `Request sent to @${result.trim()}`, variant: "success" })
+                        const reqs2 = await Collab.getRequests()
+                        setRequests(reqs2)
+                      } catch {
+                        toast.show({ message: "Failed to send request", variant: "error" })
+                      }
+                      setSending(false)
+                    }
+                  }}><b>➤ Send to user...</b></text>
+                </Show>
+                <Show when={sending()}>
+                  <text fg={theme.textMuted}>Sending...</text>
+                </Show>
+                <text fg={theme.textMuted}> </text>
+                <text fg={theme.text}><b>Incoming Requests ({reqs.length})</b></text>
+                <Show when={reqs.length === 0}>
+                  <text fg={theme.textMuted}>No pending requests</text>
+                </Show>
+                <For each={reqs.filter((r: any) => r.to === user?.login)}>
+                  {(req: any) => (
+                    <box flexDirection="row" gap={1}>
+                      <text fg={theme.text}>@{req.from}</text>
+                      <text fg={theme.success} onMouseUp={async () => {
+                        await Collab.respondRequest(req.id, "accepted")
+                        toast.show({ message: `Accepted @${req.from}!`, variant: "success" })
+                        const reqs2 = await Collab.getRequests()
+                        setRequests(reqs2)
+                        const r2 = await Collab.getCollabRepos()
+                        setRepos(r2)
+                      }}><b>[Accept]</b></text>
+                      <text fg={theme.error} onMouseUp={async () => {
+                        await Collab.respondRequest(req.id, "declined")
+                        toast.show({ message: `Declined`, variant: "info" })
+                        const reqs2 = await Collab.getRequests()
+                        setRequests(reqs2)
+                      }}><b>[Decline]</b></text>
+                    </box>
+                  )}
+                </For>
+                <text fg={theme.textMuted}> </text>
+                <text fg={theme.text}><b>Shared Repos ({collabRepos.length})</b></text>
+                <For each={collabRepos.slice(0, 5)}>
+                  {(repo: any) => (
+                    <box flexDirection="row" gap={1}>
+                      <text fg={theme.text}>{repo.name}</text>
+                      <text fg={theme.textMuted}>{repo.html_url}</text>
+                    </box>
+                  )}
+                </For>
+              </Show>
+              <text fg={theme.textMuted}> </text>
+              <text fg={theme.textMuted}>Press Esc to close</text>
+            </box>
+          )
+        })
       },
     },
     {

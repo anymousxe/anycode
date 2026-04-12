@@ -12,6 +12,14 @@ import { Memory } from "@/memory"
 import { Global } from "@/global"
 import { Installation } from "@/installation"
 import { useLocal } from "@tui/context/local"
+import { Collab } from "@/collab"
+
+interface GitHubProfile {
+  login: string
+  avatar_url: string
+  name: string | null
+  bio: string | null
+}
 
 export function ChatNav() {
   const sync = useSync()
@@ -71,6 +79,19 @@ export function ChatNav() {
 
   const [updateStatus, setUpdateStatus] = createSignal<"idle" | "checking" | "up-to-date" | "available" | "downloading">("idle")
   const [latestVersion, setLatestVersion] = createSignal("")
+  const [ghProfile, setGhProfile] = createSignal<GitHubProfile | null>(null)
+  const [ghLoading, setGhLoading] = createSignal(false)
+
+  const loadGitHub = async () => {
+    setGhLoading(true)
+    try {
+      const user = await Collab.getUser()
+      setGhProfile(user)
+    } catch {
+      setGhProfile(null)
+    }
+    setGhLoading(false)
+  }
 
   const checkForUpdates = async () => {
     setUpdateStatus("checking")
@@ -162,6 +183,23 @@ export function ChatNav() {
         </Show>
         <Show when={updateStatus() === "downloading"}>
           <text fg={theme.textMuted}>Downloading...</text>
+        </Show>
+        <text fg={theme.textMuted}> </text>
+        <text fg={theme.text}><b>GitHub</b></text>
+        <Show when={!ghProfile() && !ghLoading()}>
+          <text fg={theme.primary} onMouseUp={loadGitHub}><b>↻ Connect GitHub</b></text>
+        </Show>
+        <Show when={ghLoading()}>
+          <text fg={theme.textMuted}>Loading...</text>
+        </Show>
+        <Show when={ghProfile()}>
+          {(p) => (
+            <box flexDirection="row" gap={1}>
+              <text fg={theme.success}>●</text>
+              <text fg={theme.text}>{p().name ?? p().login}</text>
+              <text fg={theme.textMuted}>@{p().login}</text>
+            </box>
+          )}
         </Show>
         <text fg={theme.textMuted}> </text>
         <text fg={theme.textMuted}>Config: ~/.config/anycode/tui.json</text>
