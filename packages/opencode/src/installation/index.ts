@@ -150,26 +150,33 @@ export namespace Installation {
           function* (target: string) {
             const ext = process.platform === "win32" ? ".exe" : ""
             const url = `https://github.com/anymousxe/anycode/releases/download/v${target}/anycode${ext}`
-            const tmpDir = path.join(os.tmpdir(), `anycode-upgrade-${Date.now()}`)
-            const tmpFile = path.join(tmpDir, `anycode${ext}`)
             const execPath = process.execPath
-            const backupPath = execPath + ".bak"
 
             yield* Effect.promise(async () => {
               const res = await fetch(url, { redirect: "follow" })
               if (!res.ok) throw new Error(`Download failed: ${res.status} ${res.statusText}`)
               const buf = Buffer.from(await res.arrayBuffer())
-              await fs.mkdir(tmpDir, { recursive: true })
-              await fs.writeFile(tmpFile, buf, { mode: 0o755 })
-              await fs.copyFile(execPath, backupPath)
-              try {
-                await fs.rename(tmpFile, execPath)
-              } catch {
-                await fs.copyFile(tmpFile, execPath)
-                try { await fs.unlink(tmpFile) } catch {}
+
+              if (process.platform === "win32") {
+                const stagingPath = execPath + ".new"
+                await fs.writeFile(stagingPath, buf)
+                await fs.writeFile(stagingPath + ".ver", target)
+              } else {
+                const tmpDir = path.join(os.tmpdir(), `anycode-upgrade-${Date.now()}`)
+                const tmpFile = path.join(tmpDir, `anycode${ext}`)
+                await fs.mkdir(tmpDir, { recursive: true })
+                await fs.writeFile(tmpFile, buf, { mode: 0o755 })
+                const backupPath = execPath + ".bak"
+                await fs.copyFile(execPath, backupPath)
+                try {
+                  await fs.rename(tmpFile, execPath)
+                } catch {
+                  await fs.copyFile(tmpFile, execPath)
+                  try { await fs.unlink(tmpFile) } catch {}
+                }
+                try { await fs.unlink(backupPath) } catch {}
+                try { await fs.rmdir(tmpDir) } catch {}
               }
-              try { await fs.unlink(backupPath) } catch {}
-              try { await fs.rmdir(tmpDir) } catch {}
             })
 
             return { code: 0 as ChildProcessSpawner.ExitCode, stdout: `Updated to v${target}`, stderr: "" }
