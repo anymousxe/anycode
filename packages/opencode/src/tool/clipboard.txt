@@ -1,0 +1,8 @@
+Read from or write to the system clipboard. Use this to copy tokens, URLs, or text to the clipboard for the user, or to read what the user has copied.
+
+Actions:
+- **read**: Read the current clipboard content
+- **write**: Write text to the clipboard (replaces current content)
+- **append**: Append text to the current clipboard content
+
+This is especially useful after capturing auth tokens or other data from browser network requests — copy them to clipboard so the user can paste them anywhere.

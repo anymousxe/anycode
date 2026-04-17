@@ -1,0 +1,39 @@
+Launch and control a Chrome/Chromium browser with full access to the Chrome DevTools Protocol (CDP). This gives you autonomous browser control — you can navigate, watch network requests, capture auth tokens, extract cookies, interact with page elements, and close tabs.
+
+This is YOUR browser session — you launch it, you control it, you watch it. When the user logs into something, you can see the network requests and grab tokens automatically.
+
+## Actions
+
+- **launch**: Start Chrome with remote debugging. Returns a browser ID and debug URL. Chrome opens with a temporary profile so it won't interfere with the user's main browser.
+- **navigate**: Go to a URL in a tab.
+- **network.watch**: Start capturing all network requests. Returns requests as they happen.
+- **network.capture**: Get all captured network requests, optionally filtered by URL pattern.
+- **network.wait**: Wait for a network request matching a URL pattern (e.g. wait for an OAuth callback). This is the key action — use it to watch for the user to log in, then grab the token from the response.
+- **cookies**: Get all cookies for the current page.
+- **evaluate**: Run JavaScript in the page context.
+- **screenshot**: Take a screenshot of the current page.
+- **click**: Click an element by CSS selector.
+- **type**: Type text into an element by CSS selector.
+- **close**: Close a tab or the entire browser.
+- **list**: List open tabs.
+
+## Common Workflows
+
+### Capture OAuth token from browser login:
+1. `browser` action: launch → get browser ID
+2. `browser` action: navigate → go to login page
+3. `browser` action: network.wait → pattern matching the token/auth endpoint
+4. User logs in in the browser window
+5. The tool returns the captured request with the token
+6. `browser` action: close → clean up
+
+### Watch for a specific network request:
+1. Launch browser, navigate to target
+2. Start network.watch
+3. network.capture with a URL filter to find what you need
+
+### Extract cookies after login:
+1. Launch, navigate, let user log in
+2. cookies action to grab all cookies
+
+IMPORTANT: Use `network.wait` when you need to capture something that happens after user interaction (like logging in). It will block until the matching request is seen, then return it.

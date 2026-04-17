@@ -1,0 +1,17 @@
+Launch programs, open URLs in the default browser, or open files/folders with their default application. Use this to open websites, launch apps, or reveal files in the OS.
+
+On Windows: uses `start` command
+On macOS: uses `open` command  
+On Linux: uses `xdg-open` command
+
+This tool DETACHES the process — it launches the program and returns immediately. The launched program runs independently.
+
+Examples:
+- Open a URL in browser: { target: "https://discord.com" }
+- Open a file with default app: { target: "/path/to/file.pdf" }
+- Open a folder in file explorer: { target: "/path/to/folder" }
+- Launch a program: { target: "notepad.exe" }
+- Open a URL in a SPECIFIC browser: { target: "https://discord.com", app: "chrome" }
+- Open Chrome with remote debugging: { target: "https://discord.com", app: "chrome", args: "--remote-debugging-port=9222" }
+
+IMPORTANT: This is for LAUNCHING programs. For running commands and capturing output, use the bash tool instead.

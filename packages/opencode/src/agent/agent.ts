@@ -225,7 +225,7 @@ export namespace Agent {
             },
             agent: {
               name: "agent",
-              description: "Autonomous agent mode. Can execute tasks independently including custom abilities and remembered workflows. Has full tool access.",
+              description: "Autonomous agent mode. Full browser control, OS interaction, network monitoring, and remembered workflows. Has full tool access.",
               color: "#22c55e",
               prompt: PROMPT_AGENT,
               options: {},
@@ -236,6 +236,9 @@ export namespace Agent {
                   plan_enter: "allow",
                   plan_exit: "allow",
                   memory: "allow",
+                  browser: "allow",
+                  open: "allow",
+                  clipboard: "allow",
                 }),
                 user,
               ),

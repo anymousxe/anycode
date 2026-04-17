@@ -27,6 +27,9 @@ import { LspTool } from "./lsp"
 import { Truncate } from "./truncate"
 import { ApplyPatchTool } from "./apply_patch"
 import { MemoryTool } from "./memory"
+import { BrowserTool } from "./browser"
+import { OpenTool } from "./open"
+import { ClipboardTool } from "./clipboard"
 import { Glob } from "../util/glob"
 import path from "path"
 import { pathToFileURL } from "url"
@@ -193,6 +196,9 @@ export namespace ToolRegistry {
             memory: Tool.init(MemoryTool),
             lsp: Tool.init(lsptool),
             plan: Tool.init(plan),
+            browser: Tool.init(BrowserTool),
+            open: Tool.init(OpenTool),
+            clipboard: Tool.init(ClipboardTool),
           })
 
           return {
@@ -214,6 +220,9 @@ export namespace ToolRegistry {
               tool.skill,
               tool.memory,
               tool.patch,
+              tool.browser,
+              tool.open,
+              tool.clipboard,
               ...(Flag.OPENCODE_EXPERIMENTAL_LSP_TOOL ? [tool.lsp] : []),
               ...(Flag.OPENCODE_EXPERIMENTAL_PLAN_MODE && Flag.OPENCODE_CLIENT === "cli" ? [tool.plan] : []),
             ],
