@@ -257,36 +257,34 @@ export function Prompt(props: PromptProps) {
           }
         },
       },
-      {
-        title: "Interrupt session",
-        value: "session.interrupt",
-        keybind: "session_interrupt",
-        category: "Session",
-        hidden: true,
-        enabled: status().type !== "idle",
-        onSelect: (dialog) => {
-          if (autocomplete.visible) return
-          if (!input.focused) return
-          // TODO: this should be its own command
-          if (store.mode === "shell") {
-            setStore("mode", "normal")
-            return
-          }
-          if (!props.sessionID) return
+       {
+         title: "Interrupt session",
+         value: "session.interrupt",
+         keybind: "session_interrupt",
+         category: "Session",
+         hidden: true,
+         enabled: true,
+         onSelect: (dialog) => {
+           if (autocomplete.visible) return
+           if (store.mode === "shell") {
+             setStore("mode", "normal")
+             return
+           }
+           if (!props.sessionID) return
 
-          setStore("interrupt", store.interrupt + 1)
+           setStore("interrupt", store.interrupt + 1)
 
-          setTimeout(() => {
-            setStore("interrupt", 0)
-          }, 5000)
+           setTimeout(() => {
+             setStore("interrupt", 0)
+           }, 3000)
 
-          if (store.interrupt >= 2) {
-            sdk.client.session.abort({
-              sessionID: props.sessionID,
-            })
-            setStore("interrupt", 0)
-          }
-          dialog.clear()
+           if (store.interrupt >= 1) {
+             sdk.client.session.abort({
+               sessionID: props.sessionID,
+             })
+             setStore("interrupt", 0)
+           }
+           dialog.clear()
         },
       },
       {

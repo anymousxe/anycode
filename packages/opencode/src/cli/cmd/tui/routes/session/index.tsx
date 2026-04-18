@@ -152,7 +152,12 @@ export function Session() {
   const visible = createMemo(() => !session()?.parentID && permissions().length === 0 && questions().length === 0)
   const disabled = createMemo(() => permissions().length > 0 || questions().length > 0)
 
+  const sessionStatus = createMemo(() => {
+    return sync.data.session_status?.[route.sessionID]
+  })
+
   const pending = createMemo(() => {
+    if (sessionStatus()?.type === "idle") return undefined
     return messages().findLast((x) => x.role === "assistant" && !x.time.completed)?.id
   })
 
