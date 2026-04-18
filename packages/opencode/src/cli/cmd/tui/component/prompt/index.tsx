@@ -1116,8 +1116,9 @@ export function Prompt(props: PromptProps) {
                     {store.mode === "shell" ? "Shell" : Locale.titlecase(local.agent.current().name)}{" "}
                   </text>
                 }>
-                  <text fg={theme.success}>Team Chat</text>
-                  <text fg={theme.textMuted}>{"@"}{props.collabTeamMode!.login}</text>
+                  <text fg={theme.success}><b>Team</b></text>
+                  <text fg={theme.textMuted}>·</text>
+                  <text fg={theme.text}>{"@"}{props.collabTeamMode!.login}</text>
                 </Show>
                 <Show when={store.mode === "normal" && !props.collabTeamMode}>
                   <box flexDirection="row" gap={1}>
@@ -1158,6 +1159,7 @@ export function Prompt(props: PromptProps) {
                 </Show>
               </box>
               <box flexDirection="row" gap={1} alignItems="center">
+                <Show when={!props.collabTeamMode}>
                 <text
                   fg={theme.textMuted}
                   onMouseUp={async () => {
@@ -1203,6 +1205,7 @@ export function Prompt(props: PromptProps) {
                 >📷</text>
                 <Show when={hasRightContent()}>
                   {props.right}
+                </Show>
                 </Show>
               </box>
             </box>
@@ -1318,6 +1321,11 @@ export function Prompt(props: PromptProps) {
           <Show when={status().type !== "retry"}>
             <box gap={2} flexDirection="row">
               <Switch>
+                <Match when={props.collabTeamMode}>
+                  <text fg={theme.textMuted}>
+                    <b>enter</b> <span style={{ fg: theme.textMuted }}>send</span>
+                  </text>
+                </Match>
                 <Match when={store.mode === "normal"}>
                   <Switch>
                     <Match when={usage()}>

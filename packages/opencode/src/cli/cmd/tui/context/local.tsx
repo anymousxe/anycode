@@ -420,7 +420,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       repo: string
       repoName: string
       members: string[]
-      tab: "team" | "ai" | "aiai"
+      tab: "team" | "ai"
     } | null>(null)
 
     const collabSessionFile = path.join(Global.Path.state, "collab-sessions.json")
@@ -465,7 +465,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           collabSave()
         }
       },
-      setTab: (tab: "team" | "ai" | "aiai") => {
+      setTab: (tab: "team" | "ai") => {
         const info = collabInfo()
         if (info) setCollabInfo({ ...info, tab })
       },

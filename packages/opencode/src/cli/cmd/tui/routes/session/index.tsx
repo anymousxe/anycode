@@ -166,19 +166,14 @@ export function Session() {
     local.collab.restore(route.sessionID)
   }))
   const [collabMsgs, setCollabMsgs] = createSignal<any[]>([])
-  const [collabTasks, setCollabTasks] = createSignal<any[]>([])
   const [collabLogin, setCollabLogin] = createSignal("")
 
   const collabRefresh = async () => {
     const info = collabInfo()
     if (!info) return
     try {
-      const [msgs, tasks] = await Promise.all([
-        Collab.getChat(info.repo),
-        Collab.getAiRequests(info.repo).catch(() => []),
-      ])
+      const msgs = await Collab.getChat(info.repo)
       setCollabMsgs(msgs)
-      setCollabTasks(Array.isArray(tasks) ? tasks : [])
     } catch {}
   }
 
@@ -190,7 +185,6 @@ export function Session() {
       onCleanup(() => clearInterval(id))
     } else {
       setCollabMsgs([])
-      setCollabTasks([])
     }
   })
   const [conceal, setConceal] = createSignal(true)
@@ -1168,12 +1162,36 @@ export function Session() {
         <box flexGrow={1} paddingBottom={1} paddingLeft={2} paddingRight={2} gap={1}>
           <Show when={session()}>
             <Show when={collabInfo()}>
-              <box flexDirection="row" gap={2} paddingTop={0} paddingBottom={0} backgroundColor={theme.backgroundPanel} paddingLeft={1} paddingRight={1}>
-                <text fg={theme.text}><b>{collabInfo()!.repoName.length > 25 ? collabInfo()!.repoName.slice(0, 23) + ".." : collabInfo()!.repoName}</b></text>
-                <text fg={collabInfo()!.tab === "team" ? theme.success : theme.textMuted} onMouseUp={() => local.collab.setTab("team")}><b>Team</b></text>
-                <text fg={collabInfo()!.tab === "ai" ? theme.accent : theme.textMuted} onMouseUp={() => local.collab.setTab("ai")}><b>AI</b></text>
-                <text fg={collabInfo()!.tab === "aiai" ? theme.warning : theme.textMuted} onMouseUp={() => local.collab.setTab("aiai")}><b>AI-AI</b></text>
-                <text fg={theme.textMuted} onMouseUp={() => local.collab.clear(route.sessionID)}><b>[Leave]</b></text>
+              <box flexDirection="row" paddingTop={0} paddingBottom={0} backgroundColor={theme.backgroundPanel} paddingLeft={1} paddingRight={1} justifyContent="space-between">
+                <box flexDirection="row" gap={1} alignItems="center">
+                  <text fg={theme.text}>
+                    <b>{collabInfo()!.repoName.length > 22 ? collabInfo()!.repoName.slice(0, 20) + ".." : collabInfo()!.repoName}</b>
+                  </text>
+                  <text fg={theme.border}>│</text>
+                  <box
+                    paddingLeft={1}
+                    paddingRight={1}
+                    backgroundColor={collabInfo()!.tab === "team" ? theme.backgroundElement : theme.backgroundPanel}
+                    onMouseUp={() => local.collab.setTab("team")}
+                  >
+                    <text fg={collabInfo()!.tab === "team" ? theme.success : theme.textMuted}>
+                      <b>{collabInfo()!.tab === "team" ? "● Team" : "  Team"}</b>
+                    </text>
+                  </box>
+                  <box
+                    paddingLeft={1}
+                    paddingRight={1}
+                    backgroundColor={collabInfo()!.tab === "ai" ? theme.backgroundElement : theme.backgroundPanel}
+                    onMouseUp={() => local.collab.setTab("ai")}
+                  >
+                    <text fg={collabInfo()!.tab === "ai" ? theme.accent : theme.textMuted}>
+                      <b>{collabInfo()!.tab === "ai" ? "● AI" : "  AI"}</b>
+                    </text>
+                  </box>
+                </box>
+                <text fg={theme.textMuted} onMouseUp={() => local.collab.clear(route.sessionID)}>
+                  <b>[Leave]</b>
+                </text>
               </box>
             </Show>
             <scrollbox
@@ -1196,42 +1214,44 @@ export function Session() {
             >
               <box height={1} />
               <Show when={collabInfo() && collabInfo()!.tab === "team"}>
+                <Show when={collabMsgs().filter((m: any) => m.type === "human").length === 0}>
+                  <box marginTop={2} flexShrink={0} alignItems="center">
+                    <text fg={theme.textMuted}>no messages yet</text>
+                    <text fg={theme.textMuted}>say hi to your team 👋</text>
+                  </box>
+                </Show>
                 <For each={collabMsgs().filter((m: any) => m.type === "human")}>
                   {(msg: any) => {
-                    const isMine = msg.from?.toLowerCase() === collabLogin().toLowerCase()
-                    const color = isMine ? theme.success : theme.primary
+                    const mine = msg.from?.toLowerCase() === collabLogin().toLowerCase()
+                    const color = mine ? theme.success : theme.primary
                     const time = new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
                     return (
-                      <box border={["left"]} borderColor={color} customBorderChars={SplitBorder.customBorderChars} marginTop={1} flexShrink={0}>
-                        <box paddingTop={1} paddingBottom={1} paddingLeft={2} backgroundColor={theme.backgroundPanel} flexShrink={0}>
-                          <box flexDirection="row" gap={1}>
-                            <text fg={color}><b>{msg.from}</b></text>
-                            <text fg={theme.textMuted}>{time}</text>
+                      <box marginTop={1} flexShrink={0} alignItems={mine ? "flex-end" : "flex-start"}>
+                        <box flexDirection="row" gap={1} paddingLeft={2} paddingRight={2}>
+                          <Show when={!mine}><text fg={color}><b>{msg.from}</b></text></Show>
+                          <text fg={theme.textMuted}>{time}</text>
+                          <Show when={mine}><text fg={color}><b>you</b></text></Show>
+                        </box>
+                        <box
+                          border={["left"]}
+                          borderColor={color}
+                          customBorderChars={SplitBorder.customBorderChars}
+                          flexShrink={0}
+                        >
+                          <box
+                            paddingTop={0}
+                            paddingBottom={0}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            backgroundColor={theme.backgroundPanel}
+                            flexShrink={0}
+                          >
+                            <text fg={theme.text}>{msg.body}</text>
                           </box>
-                          <text fg={theme.text}>{msg.body}</text>
                         </box>
                       </box>
                     )
                   }}
-                </For>
-              </Show>
-              <Show when={collabInfo() && collabInfo()!.tab === "aiai"}>
-                <text fg={theme.warning}><b>AI Task Board</b></text>
-                <Show when={collabTasks().length === 0}>
-                  <text fg={theme.textMuted}>No tasks yet. Use ⚡ New task... below</text>
-                </Show>
-                <For each={collabTasks()}>
-                  {(task: any) => (
-                    <box border={["left"]} borderColor={task.status === "pending" ? theme.warning : theme.success} customBorderChars={SplitBorder.customBorderChars} marginTop={1} flexShrink={0}>
-                      <box paddingTop={1} paddingBottom={1} paddingLeft={2} backgroundColor={theme.backgroundPanel} flexShrink={0}>
-                        <box flexDirection="row" gap={1}>
-                          <text fg={task.status === "pending" ? theme.warning : theme.success}><b>{task.status}</b></text>
-                          <text fg={theme.textMuted}>{"@"}{task.fromUser}</text>
-                        </box>
-                        <text fg={theme.text}>{task.task}</text>
-                      </box>
-                    </box>
-                  )}
                 </For>
               </Show>
               <Show when={!collabInfo() || collabInfo()!.tab === "ai"}>
@@ -1333,23 +1353,6 @@ export function Session() {
               </Show>
             </scrollbox>
             <box flexShrink={0}>
-              <Show when={collabInfo() && collabInfo()!.tab === "aiai"}>
-                <box flexDirection="row" gap={1} paddingLeft={1} paddingRight={1} paddingTop={0} paddingBottom={0} backgroundColor={theme.backgroundPanel}>
-                  <text fg={theme.warning}><b>AI-AI</b></text>
-                  <text fg={theme.warning} onMouseUp={async () => {
-                    const result = await DialogPrompt.show(dialog, "AI Task", { placeholder: "Task for other AI..." })
-                    if (!result || !collabInfo()) return
-                    try {
-                      await Collab.sendAiRequest(collabInfo()!.repo, collabLogin(), result)
-                      toast.show({ message: "Task sent!", variant: "success" })
-                      await collabRefresh()
-                    } catch {
-                      toast.show({ message: "Failed", variant: "error" })
-                    }
-                  }}><b>⚡ New task</b></text>
-                  <text fg={theme.textMuted} onMouseUp={collabRefresh}><b>↻</b></text>
-                </box>
-              </Show>
               <Show when={permissions().length > 0}>
                 <PermissionPrompt request={permissions()[0]} />
               </Show>
