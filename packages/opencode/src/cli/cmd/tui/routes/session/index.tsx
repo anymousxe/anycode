@@ -153,7 +153,7 @@ export function Session() {
   const disabled = createMemo(() => permissions().length > 0 || questions().length > 0)
 
   const sessionStatus = createMemo(() => {
-    return sync.data.session_status?.[route.sessionID]
+    try { return sync.data.session_status?.[route.sessionID] } catch { return undefined }
   })
 
   const pending = createMemo(() => {
@@ -175,23 +175,18 @@ export function Session() {
   const [sidebarOpen, setSidebarOpen] = createSignal(false)
   const collabInfo = useLocal().collab.info
 
-  createEffect(on(() => route.sessionID, () => {
-    local.collab.restore(route.sessionID)
+  createEffect(on(() => route.sessionID, (id) => {
+    try { local.collab.restore(id) } catch {}
   }))
   const [collabMsgs, setCollabMsgs] = createSignal<any[]>([])
   const [collabLogin, setCollabLogin] = createSignal("")
-  const [collabLock, setCollabLock] = createSignal<{ locked: boolean; holder?: string }>({ locked: false })
 
   const collabRefresh = async () => {
     const info = collabInfo()
     if (!info) return
     try {
-      const [msgs, lock] = await Promise.all([
-        Collab.getChat(info.repo),
-        Collab.getLock(info.repo),
-      ])
+      const msgs = await Collab.getChat(info.repo)
       setCollabMsgs(msgs)
-      setCollabLock(lock)
     } catch {}
   }
 
@@ -199,7 +194,7 @@ export function Session() {
     if (collabInfo()) {
       GitHub.getLogin().then(setCollabLogin)
       collabRefresh()
-      const id = setInterval(collabRefresh, 2000)
+      const id = setInterval(collabRefresh, 5000)
       onCleanup(() => clearInterval(id))
     } else {
       setCollabMsgs([])
@@ -211,33 +206,27 @@ export function Session() {
     const info = collabInfo()
     if (!info) return
     if (gitPushTimer) clearTimeout(gitPushTimer)
-    gitPushTimer = setTimeout(async () => {
-      try {
-        Bun.spawnSync(["git", "add", "-A"], { cwd: Instance.directory })
-        const status = Bun.spawnSync(["git", "status", "--porcelain"], { cwd: Instance.directory })
-        if (status.stdout.toString().trim()) {
-          Bun.spawnSync(["git", "commit", "-m", `collab: @${collabLogin()} ${new Date().toISOString()}`], { cwd: Instance.directory })
-          Bun.spawnSync(["git", "push"], { cwd: Instance.directory })
-        }
-      } catch {}
-    }, 3000)
+    gitPushTimer = setTimeout(() => {
+      const dir = Instance.directory
+      const msg = `collab: @${collabLogin()} ${new Date().toISOString()}`
+      Bun.spawn(["git", "add", "-A"], { cwd: dir, stdio: ["ignore", "ignore", "ignore"] })
+      const st = Bun.spawnSync(["git", "status", "--porcelain"], { cwd: dir })
+      if (st.stdout.toString().trim()) {
+        Bun.spawn(["git", "commit", "-m", msg], { cwd: dir, stdio: ["ignore", "ignore", "ignore"] })
+        Bun.spawn(["git", "push"], { cwd: dir, stdio: ["ignore", "ignore", "ignore"] })
+      }
+    }, 5000)
   }
 
-  createEffect(() => {
-    if (collabInfo()) {
-      const unsub = Bus.subscribe(File.Event.Edited, () => collabGitPush())
-      onCleanup(unsub)
-    }
-  })
-
-  createEffect(() => {
-    const info = collabInfo()
-    if (!info) return
-    if (!pending() && collabLock().locked && collabLock().holder?.toLowerCase() === collabLogin().toLowerCase()) {
-      Collab.releaseLock(info.repo).catch(() => {})
-      setCollabLock({ locked: false })
-    }
-  })
+  let busUnsub: (() => void) | null = null
+  try {
+    createEffect(() => {
+      if (busUnsub) { busUnsub(); busUnsub = null }
+      if (collabInfo()) {
+        busUnsub = Bus.subscribe(File.Event.Edited, () => collabGitPush())
+      }
+    })
+  } catch {}
   const [conceal, setConceal] = createSignal(true)
   const [showThinking, setShowThinking] = kv.signal("thinking_visibility", true)
   const [timestamps, setTimestamps] = kv.signal<"hide" | "show">("timestamps", "hide")
@@ -1243,9 +1232,6 @@ export function Session() {
                 <text fg={theme.textMuted} onMouseUp={() => local.collab.clear(route.sessionID)}>
                   <b>[Leave]</b>
                 </text>
-                <Show when={collabLock().locked}>
-                  <text fg={theme.warning}>{"🔒"}@{collabLock().holder}</text>
-                </Show>
               </box>
             </Show>
             <scrollbox
@@ -1447,9 +1433,6 @@ export function Session() {
                     disabled={disabled()}
                     onSubmit={() => {
                       toBottom()
-                      if (collabInfo()) {
-                        Collab.acquireLock(collabInfo()!.repo).catch(() => {})
-                      }
                     }}
                     sessionID={route.sessionID}
                     right={<TuiPluginRuntime.Slot name="session_prompt_right" session_id={route.sessionID} />}
