@@ -660,7 +660,8 @@ export namespace MessageV2 {
             })
           // text/plain and directory files are converted into text parts, ignore them
           if (part.type === "file" && part.mime !== "text/plain" && part.mime !== "application/x-directory") {
-            if (options?.stripMedia && isMedia(part.mime)) {
+            const normalizedMime = part.mime.startsWith("image/") && !["image/png","image/jpeg","image/gif","image/webp"].includes(part.mime) ? "image/png" : part.mime
+            if (options?.stripMedia && isMedia(normalizedMime)) {
               userMessage.parts.push({
                 type: "text",
                 text: `[Attached ${part.mime}: ${part.filename ?? "file"}]`,
@@ -669,7 +670,7 @@ export namespace MessageV2 {
               userMessage.parts.push({
                 type: "file",
                 url: part.url,
-                mediaType: part.mime,
+                mediaType: normalizedMime,
                 filename: part.filename,
               })
             }
@@ -813,7 +814,7 @@ export namespace MessageV2 {
                 ...media.map((attachment) => ({
                   type: "file" as const,
                   url: attachment.url,
-                  mediaType: attachment.mime,
+                  mediaType: attachment.mime.startsWith("image/") && !["image/png","image/jpeg","image/gif","image/webp"].includes(attachment.mime) ? "image/png" : attachment.mime,
                 })),
               ],
             })
