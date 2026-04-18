@@ -4,7 +4,7 @@ import path from "path"
 import os from "os"
 import { Filesystem } from "../util/filesystem"
 
-const app = "anycode"
+const app = process.env.ANYCODE_DEV === "1" ? "anycode-dev" : "anycode"
 const legacyApp = "opencode"
 
 const data = path.join(xdgData!, app)
