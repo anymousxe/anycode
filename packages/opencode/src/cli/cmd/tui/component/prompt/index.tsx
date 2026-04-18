@@ -1161,9 +1161,31 @@ export function Prompt(props: PromptProps) {
                 <text
                   fg={theme.textMuted}
                   onMouseUp={async () => {
-                    const result = await DialogPrompt.show(dialog, "Image Path", { placeholder: "Path to image file..." })
-                    if (!result) return
-                    const filepath = result.replace(/^["']|["']$/g, "")
+                    let filepath: string | null = null
+                    if (process.platform === "win32") {
+                      const proc = Bun.spawn(["powershell", "-NoProfile", "-Command", `
+                        Add-Type -AssemblyName System.Windows.Forms
+                        $dlg = New-Object System.Windows.Forms.OpenFileDialog
+                        $dlg.Filter = 'Images|*.png;*.jpg;*.jpeg;*.gif;*.webp;*.bmp;*.svg|All Files|*.*'
+                        $dlg.Title = 'Select an image'
+                        if ($dlg.ShowDialog() -eq 'OK') { $dlg.FileName } else { '' }
+                      `], { stdout: "pipe" })
+                      await proc.exited
+                      const out = await new Response(proc.stdout).text()
+                      filepath = out.trim() || null
+                    } else if (process.platform === "darwin") {
+                      const proc = Bun.spawn(["osascript", "-e", `
+                        set f to choose file of type {"public.image"} with prompt "Select an image"
+                        return POSIX path of f
+                      `], { stdout: "pipe" })
+                      await proc.exited
+                      const out = await new Response(proc.stdout).text()
+                      filepath = out.trim() || null
+                    } else {
+                      const result = await DialogPrompt.show(dialog, "Image Path", { placeholder: "Path to image file..." })
+                      filepath = result?.replace(/^["']|["']$/g, "") ?? null
+                    }
+                    if (!filepath) return
                     const absPath = path.isAbsolute(filepath) ? filepath : path.join(Instance.directory, filepath)
                     try {
                       const stat = await Filesystem.stat(absPath)
