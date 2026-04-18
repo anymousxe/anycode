@@ -7,14 +7,14 @@ A terminal-based AI coding agent with persistent memory, custom modes, and auton
 ### Windows (one-line)
 
 ```powershell
-mkdir "$env:USERPROFILE\.local\bin" -Force; Invoke-WebRequest -Uri "https://github.com/anymousxe/anycode/releases/latest/download/anycode.exe" -OutFile "$env:USERPROFILE\.local\bin\anycode.exe"; [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path","User") + ";$env:USERPROFILE\.local\bin", "User")
+mkdir "$env:USERPROFILE\.local\bin" -Force; (New-Object Net.WebClient).DownloadFile("https://github.com/anymousxe/anycode/releases/latest/download/anycode.exe", "$env:USERPROFILE\.local\bin\anycode.exe"); [Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path","User") + ";$env:USERPROFILE\.local\bin", "User")
 ```
 
 Close and reopen your terminal, then run `anycode`.
 
-Or download and run the installer:
+Or with curl (faster):
 ```
-powershell -Command "Invoke-WebRequest -Uri 'https://github.com/anymousxe/anycode/raw/main/install.bat' -OutFile install.bat"; install.bat
+mkdir "%USERPROFILE%\.local\bin" 2>nul & curl -fsSL -o "%USERPROFILE%\.local\bin\anycode.exe" https://github.com/anymousxe/anycode/releases/latest/download/anycode.exe & powershell -Command "$d=\"$env:USERPROFILE\\.local\\bin\"; $p=[Environment]::GetEnvironmentVariable('Path','User'); if($p -notlike \"*$d*\"){[Environment]::SetEnvironmentVariable('Path',$p+';'+$d,'User')}"
 ```
 
 ### macOS / Linux
