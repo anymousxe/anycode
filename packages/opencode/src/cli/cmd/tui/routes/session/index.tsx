@@ -157,7 +157,12 @@ export function Session() {
   })
 
   const pending = createMemo(() => {
-    if (sessionStatus()?.type === "idle") return undefined
+    const status = sessionStatus()
+    if (status?.type === "idle") return undefined
+    if (status?.type !== "busy") {
+      const last = messages().findLast((x) => x.role === "assistant" && !x.time.completed)
+      if (last && Date.now() - (last.time?.created ?? 0) > 60000) return undefined
+    }
     return messages().findLast((x) => x.role === "assistant" && !x.time.completed)?.id
   })
 

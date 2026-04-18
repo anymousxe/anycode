@@ -1,5 +1,6 @@
 import z from "zod"
 import { Effect } from "effect"
+import { EffectLogger } from "@/effect/logger"
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
 import { Tool } from "./tool"
 import TurndownService from "turndown"
@@ -154,7 +155,7 @@ export const WebFetchTool = Tool.defineEffect(
             default:
               return { output: content, title, metadata: {} }
           }
-        }).pipe(Effect.runPromise),
+        }).pipe(Effect.provide(EffectLogger.layer), Effect.runPromise),
     }
   }),
 )
