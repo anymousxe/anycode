@@ -12,17 +12,21 @@ set "URL=https://github.com/anymousxe/anycode/releases/latest/download/anycode.e
 set "DEST=%INSTALL_DIR%\anycode.exe"
 
 echo Downloading...
-powershell -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%URL%' -OutFile '%DEST%' -UseBasicParsing; if (!(Test-Path '%DEST%')) { exit 1 } } catch { exit 1 }"
 
-if errorlevel 1 (
-    echo PowerShell download failed. Trying with curl...
+where curl >nul 2>nul
+if %errorlevel%==0 (
     curl -fsSL -o "%DEST%" "%URL%"
-    if errorlevel 1 (
-        echo Both download methods failed. Please check your internet connection.
-        exit /b 1
-    )
+    if not errorlevel 1 goto :verify
+    echo curl download failed, trying PowerShell...
 )
 
+powershell -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; (New-Object Net.WebClient).DownloadFile('%URL%','%DEST%')"
+if errorlevel 1 (
+    echo Download failed. Please check your internet connection.
+    exit /b 1
+)
+
+:verify
 if not exist "%DEST%" (
     echo Downloaded file not found. Something went wrong.
     exit /b 1
