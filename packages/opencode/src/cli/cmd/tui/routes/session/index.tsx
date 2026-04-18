@@ -152,17 +152,7 @@ export function Session() {
   const visible = createMemo(() => !session()?.parentID && permissions().length === 0 && questions().length === 0)
   const disabled = createMemo(() => permissions().length > 0 || questions().length > 0)
 
-  const sessionStatus = createMemo(() => {
-    try { return sync.data.session_status?.[route.sessionID] } catch { return undefined }
-  })
-
   const pending = createMemo(() => {
-    const status = sessionStatus()
-    if (status?.type === "idle") return undefined
-    if (status?.type !== "busy") {
-      const last = messages().findLast((x) => x.role === "assistant" && !x.time.completed)
-      if (last && Date.now() - (last.time?.created ?? 0) > 60000) return undefined
-    }
     return messages().findLast((x) => x.role === "assistant" && !x.time.completed)?.id
   })
 
@@ -209,24 +199,24 @@ export function Session() {
     gitPushTimer = setTimeout(() => {
       const dir = Instance.directory
       const msg = `collab: @${collabLogin()} ${new Date().toISOString()}`
-      Bun.spawn(["git", "add", "-A"], { cwd: dir, stdio: ["ignore", "ignore", "ignore"] })
-      const st = Bun.spawnSync(["git", "status", "--porcelain"], { cwd: dir })
-      if (st.stdout.toString().trim()) {
-        Bun.spawn(["git", "commit", "-m", msg], { cwd: dir, stdio: ["ignore", "ignore", "ignore"] })
-        Bun.spawn(["git", "push"], { cwd: dir, stdio: ["ignore", "ignore", "ignore"] })
-      }
+      const p = Bun.spawn({
+        cmd: ["git", "add", "-A", "&&", "git", "diff", "--cached", "--quiet", "||", "git", "commit", "-m", msg, "&&", "git", "push"],
+        cwd: dir,
+        stdout: "ignore",
+        stderr: "ignore",
+        stdin: "ignore",
+      })
+      p.unref()
     }, 5000)
   }
 
   let busUnsub: (() => void) | null = null
-  try {
-    createEffect(() => {
-      if (busUnsub) { busUnsub(); busUnsub = null }
-      if (collabInfo()) {
-        busUnsub = Bus.subscribe(File.Event.Edited, () => collabGitPush())
-      }
-    })
-  } catch {}
+  createEffect(() => {
+    if (busUnsub) { busUnsub(); busUnsub = null }
+    if (collabInfo()) {
+      try { busUnsub = Bus.subscribe(File.Event.Edited, () => collabGitPush()) } catch {}
+    }
+  })
   const [conceal, setConceal] = createSignal(true)
   const [showThinking, setShowThinking] = kv.signal("thinking_visibility", true)
   const [timestamps, setTimestamps] = kv.signal<"hide" | "show">("timestamps", "hide")
