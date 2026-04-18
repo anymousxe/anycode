@@ -32,6 +32,16 @@ export function ChatNav() {
   const sdk = useSDK()
   const dialog = useDialog()
   const [collapsed, setCollapsed] = createSignal(false)
+  const [visionFallback, setVisionFallback] = createSignal<string | null>(null)
+
+  const loadVisionFallback = () => {
+    const configPath = path.join(Global.Path.config, "opencode.json")
+    try {
+      const cfg = JSON.parse(fs.readFileSync(configPath, "utf-8"))
+      setVisionFallback(cfg.vision_fallback_model ?? null)
+    } catch { setVisionFallback(null) }
+  }
+  onMount(loadVisionFallback)
 
   const currentSession = createMemo(() =>
     route.data.type === "session" ? route.data.sessionID : undefined,
@@ -277,6 +287,44 @@ export function ChatNav() {
           )}
         </For>
         <text fg={theme.primary} onMouseUp={() => dialog.replace(() => <DialogProvider />)}><b>+ Add Provider</b></text>
+        <text fg={theme.textMuted}> </text>
+        <text fg={theme.text}><b>Vision Fallback</b></text>
+        <text fg={theme.textMuted}>Model to describe images for non-vision models</text>
+        <box flexDirection="row" gap={1}>
+          <text
+            fg={visionFallback() ? theme.success : theme.textMuted}
+            onMouseUp={async () => {
+              const val = await DialogPrompt.show(dialog, "Vision Fallback Model", { placeholder: "e.g. openai/gpt-5.4 or anthropic/claude-4-sonnet" })
+              if (val === null) return
+              const configPath = path.join(Global.Path.config, "opencode.json")
+              try {
+                const cfg = JSON.parse(fs.readFileSync(configPath, "utf-8"))
+                if (val.trim()) {
+                  cfg.vision_fallback_model = val.trim()
+                } else {
+                  delete cfg.vision_fallback_model
+                }
+                fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2))
+                loadVisionFallback()
+                toast.show({ message: val.trim() ? `Vision fallback: ${val.trim()}` : "Vision fallback cleared", variant: "info" })
+              } catch {
+                toast.show({ message: "Failed to save", variant: "error" })
+              }
+            }}
+          >{visionFallback() ? visionFallback() : "Not set — click to set"}</text>
+          <Show when={visionFallback()}>
+            <text fg={theme.error} onMouseUp={async () => {
+              const configPath = path.join(Global.Path.config, "opencode.json")
+              try {
+                const cfg = JSON.parse(fs.readFileSync(configPath, "utf-8"))
+                delete cfg.vision_fallback_model
+                fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2))
+                loadVisionFallback()
+                toast.show({ message: "Vision fallback cleared", variant: "info" })
+              } catch {}
+            }}><b>[✕]</b></text>
+          </Show>
+        </box>
         <text fg={theme.textMuted}> </text>
         <text fg={theme.textMuted}>Config: ~/.config/anycode/tui.json</text>
         <text fg={theme.textMuted}>Press Esc to close</text>

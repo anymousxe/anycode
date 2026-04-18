@@ -960,6 +960,9 @@ export namespace Config {
         .describe(
           "Default agent to use when none is specified. Must be a primary agent. Falls back to 'build' if not set or if the specified agent is invalid.",
         ),
+      vision_fallback_model: ModelId.describe(
+        "Vision-capable model to describe images when the current model doesn't support image input. Format: provider/model",
+      ).optional(),
       username: z
         .string()
         .optional()

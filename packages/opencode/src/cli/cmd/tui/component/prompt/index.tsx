@@ -4,6 +4,7 @@ import "opentui-spinner/solid"
 import path from "path"
 import { fileURLToPath } from "url"
 import { Filesystem } from "@/util/filesystem"
+import { Instance } from "@/project/instance"
 import { useLocal } from "@tui/context/local"
 import { useTheme } from "@tui/context/theme"
 import { EmptyBorder, SplitBorder } from "@tui/component/border"
@@ -31,6 +32,7 @@ import { Locale } from "@/util/locale"
 import { formatDuration } from "@/util/format"
 import { createColors, createFrames } from "../../ui/spinner.ts"
 import { useDialog } from "@tui/ui/dialog"
+import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { DialogProvider as DialogProviderConnect } from "../dialog-provider"
 import { DialogAlert } from "../../ui/dialog-alert"
 import { useToast } from "../../ui/toast"
@@ -1155,11 +1157,32 @@ export function Prompt(props: PromptProps) {
                   </box>
                 </Show>
               </box>
-              <Show when={hasRightContent()}>
-                <box flexDirection="row" gap={1} alignItems="center">
+              <box flexDirection="row" gap={1} alignItems="center">
+                <text
+                  fg={theme.textMuted}
+                  onMouseUp={async () => {
+                    const result = await DialogPrompt.show(dialog, "Image Path", { placeholder: "Path to image file..." })
+                    if (!result) return
+                    const filepath = result.replace(/^["']|["']$/g, "")
+                    const absPath = path.isAbsolute(filepath) ? filepath : path.join(Instance.directory, filepath)
+                    try {
+                      const stat = await Filesystem.stat(absPath)
+                      if (!stat?.isFile()) { toast.show({ message: "Not a file", variant: "error" }); return }
+                      const mime = Filesystem.mimeType(absPath)
+                      if (!mime.startsWith("image/")) { toast.show({ message: "Not an image file", variant: "error" }); return }
+                      const buf = await Filesystem.readArrayBuffer(absPath)
+                      const content = Buffer.from(buf).toString("base64")
+                      const filename = path.basename(absPath)
+                      await pasteAttachment({ filename, filepath: absPath, content, mime })
+                    } catch {
+                      toast.show({ message: "Could not read file", variant: "error" })
+                    }
+                  }}
+                >📷</text>
+                <Show when={hasRightContent()}>
                   {props.right}
-                </box>
-              </Show>
+                </Show>
+              </box>
             </box>
           </box>
         </box>
