@@ -17,6 +17,7 @@ import { BashArity } from "@/permission/arity"
 import { Truncate } from "./truncate"
 import { Plugin } from "@/plugin"
 import { Effect, Stream } from "effect"
+import { EffectLogger } from "@/effect/logger"
 import { ChildProcess } from "effect/unstable/process"
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner"
 
@@ -504,7 +505,7 @@ export const BashTool = Tool.defineEffect(
               },
               ctx,
             )
-          }).pipe(Effect.orDie, Effect.runPromise),
+          }).pipe(Effect.provide(EffectLogger.layer), Effect.orDie, Effect.runPromise),
       }
     }
   }),

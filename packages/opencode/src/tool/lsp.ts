@@ -1,5 +1,6 @@
 import z from "zod"
 import { Effect } from "effect"
+import { EffectLogger } from "@/effect/logger"
 import { Tool } from "./tool"
 import path from "path"
 import { LSP } from "../lsp"
@@ -85,7 +86,7 @@ export const LspTool = Tool.defineEffect(
             metadata: { result },
             output: result.length === 0 ? `No results found for ${args.operation}` : JSON.stringify(result, null, 2),
           }
-        }).pipe(Effect.runPromise),
+        }).pipe(Effect.provide(EffectLogger.layer), Effect.runPromise),
     }
   }),
 )

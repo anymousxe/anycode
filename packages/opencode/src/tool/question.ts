@@ -1,5 +1,6 @@
 import z from "zod"
 import { Effect } from "effect"
+import { EffectLogger } from "@/effect/logger"
 import { Tool } from "./tool"
 import { Question } from "../question"
 import DESCRIPTION from "./question.txt"
@@ -39,7 +40,7 @@ export const QuestionTool = Tool.defineEffect<typeof parameters, Metadata, Quest
               answers,
             },
           }
-        }).pipe(Effect.runPromise),
+        }).pipe(Effect.provide(EffectLogger.layer), Effect.runPromise),
     }
   }),
 )

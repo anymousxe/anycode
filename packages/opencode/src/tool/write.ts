@@ -1,6 +1,7 @@
 import z from "zod"
 import * as path from "path"
 import { Effect } from "effect"
+import { EffectLogger } from "@/effect/logger"
 import { Tool } from "./tool"
 import { LSP } from "../lsp"
 import { createTwoFilesPatch } from "diff"
@@ -92,7 +93,7 @@ export const WriteTool = Tool.defineEffect(
             },
             output,
           }
-        }).pipe(Effect.orDie, Effect.runPromise),
+        }).pipe(Effect.provide(EffectLogger.layer), Effect.orDie, Effect.runPromise),
     }
   }),
 )

@@ -6,6 +6,7 @@ import { useDialog } from "@tui/ui/dialog"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { DialogAlert } from "@tui/ui/dialog-alert"
 import { DialogConfirm } from "@tui/ui/dialog-confirm"
+import { DialogProvider } from "./dialog-provider"
 import { useToast } from "@tui/ui/toast"
 import { createMemo, For, Show, createSignal, onMount } from "solid-js"
 import { Locale } from "@/util/locale"
@@ -14,6 +15,8 @@ import { Global } from "@/global"
 import { Installation } from "@/installation"
 import { useLocal } from "@tui/context/local"
 import { GitHub } from "@/collab"
+import fs from "fs"
+import path from "path"
 
 interface GitHubProfile {
   login: string
@@ -247,6 +250,33 @@ export function ChatNav() {
             </box>
           )}
         </Show>
+        <text fg={theme.textMuted}> </text>
+        <text fg={theme.text}><b>Providers</b></text>
+        <For each={sync.data.provider}>
+          {(p) => (
+            <box flexDirection="row" gap={1}>
+              <text fg={theme.success}>●</text>
+              <text fg={theme.text}>{p.name}</text>
+              <text fg={theme.error} onMouseUp={async () => {
+                const ok = await DialogConfirm.show(dialog, "Remove Provider", `Remove ${p.name}? This will delete the stored API key.`)
+                if (!ok) return
+                const configPath = path.join(Global.Path.config, "opencode.json")
+                try {
+                  const cfg = JSON.parse(fs.readFileSync(configPath, "utf-8"))
+                  if (cfg.provider?.[p.id]) {
+                    delete cfg.provider[p.id]
+                    fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2))
+                  }
+                } catch {}
+                await sdk.client.auth.remove({ providerID: p.id })
+                await sdk.client.instance.dispose()
+                await sync.bootstrap()
+                toast.show({ message: `Removed ${p.name}`, variant: "info" })
+              }}><b>[✕]</b></text>
+            </box>
+          )}
+        </For>
+        <text fg={theme.primary} onMouseUp={() => dialog.replace(() => <DialogProvider />)}><b>+ Add Provider</b></text>
         <text fg={theme.textMuted}> </text>
         <text fg={theme.textMuted}>Config: ~/.config/anycode/tui.json</text>
         <text fg={theme.textMuted}>Press Esc to close</text>

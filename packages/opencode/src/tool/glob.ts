@@ -1,6 +1,7 @@
 import z from "zod"
 import path from "path"
 import { Effect, Option } from "effect"
+import { EffectLogger } from "@/effect/logger"
 import * as Stream from "effect/Stream"
 import { Tool } from "./tool"
 import DESCRIPTION from "./glob.txt"
@@ -90,7 +91,7 @@ export const GlobTool = Tool.defineEffect(
             },
             output: output.join("\n"),
           }
-        }).pipe(Effect.orDie, Effect.runPromise),
+        }).pipe(Effect.provide(EffectLogger.layer), Effect.orDie, Effect.runPromise),
     }
   }),
 )

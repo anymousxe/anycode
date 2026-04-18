@@ -1,5 +1,6 @@
 import z from "zod"
 import { Effect } from "effect"
+import { EffectLogger } from "@/effect/logger"
 import { Tool } from "./tool"
 import { EditTool } from "./edit"
 import DESCRIPTION from "./multiedit.txt"
@@ -57,7 +58,7 @@ export const MultiEditTool = Tool.defineEffect(
             },
             output: results.at(-1)!.output,
           }
-        }).pipe(Effect.orDie, Effect.runPromise),
+        }).pipe(Effect.provide(EffectLogger.layer), Effect.orDie, Effect.runPromise),
     }
   }),
 )

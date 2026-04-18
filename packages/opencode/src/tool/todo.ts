@@ -1,5 +1,6 @@
 import z from "zod"
 import { Effect } from "effect"
+import { EffectLogger } from "@/effect/logger"
 import { Tool } from "./tool"
 import DESCRIPTION_WRITE from "./todowrite.txt"
 import { Todo } from "../session/todo"
@@ -33,7 +34,7 @@ export const TodoWriteTool = Tool.defineEffect<typeof parameters, Metadata, Todo
             sessionID: ctx.sessionID,
             todos: params.todos,
           })
-          .pipe(Effect.runPromise)
+          .pipe(Effect.provide(EffectLogger.layer), Effect.runPromise)
 
         return {
           title: `${params.todos.filter((x) => x.status !== "completed").length} todos`,

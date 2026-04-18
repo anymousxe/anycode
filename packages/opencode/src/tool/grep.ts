@@ -1,5 +1,6 @@
 import z from "zod"
 import { Effect } from "effect"
+import { EffectLogger } from "@/effect/logger"
 import * as Stream from "effect/Stream"
 import { Tool } from "./tool"
 import { Filesystem } from "../util/filesystem"
@@ -171,7 +172,7 @@ export const GrepTool = Tool.defineEffect(
             },
             output: outputLines.join("\n"),
           }
-        }).pipe(Effect.orDie, Effect.runPromise),
+        }).pipe(Effect.provide(EffectLogger.layer), Effect.orDie, Effect.runPromise),
     }
   }),
 )
