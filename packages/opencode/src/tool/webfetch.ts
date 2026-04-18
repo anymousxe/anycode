@@ -110,6 +110,7 @@ export const WebFetchTool = Tool.defineEffect(
           const isImage = mime.startsWith("image/") && mime !== "image/svg+xml" && mime !== "image/vnd.fastbidsheet"
 
           if (isImage) {
+            const normalizedMime = ["image/png","image/jpeg","image/gif","image/webp"].includes(mime) ? mime : "image/png"
             const base64Content = Buffer.from(arrayBuffer).toString("base64")
             return {
               title,
@@ -118,8 +119,8 @@ export const WebFetchTool = Tool.defineEffect(
               attachments: [
                 {
                   type: "file" as const,
-                  mime,
-                  url: `data:${mime};base64,${base64Content}`,
+                  mime: normalizedMime,
+                  url: `data:${normalizedMime};base64,${base64Content}`,
                 },
               ],
             }

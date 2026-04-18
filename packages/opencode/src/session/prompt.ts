@@ -460,19 +460,21 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                 for (const contentItem of result.content) {
                   if (contentItem.type === "text") textParts.push(contentItem.text)
                   else if (contentItem.type === "image") {
+                    const imgMime = ["image/png","image/jpeg","image/gif","image/webp"].includes(contentItem.mimeType) ? contentItem.mimeType : "image/png"
                     attachments.push({
                       type: "file",
-                      mime: contentItem.mimeType,
-                      url: `data:${contentItem.mimeType};base64,${contentItem.data}`,
+                      mime: imgMime,
+                      url: `data:${imgMime};base64,${contentItem.data}`,
                     })
                   } else if (contentItem.type === "resource") {
                     const { resource } = contentItem
                     if (resource.text) textParts.push(resource.text)
                     if (resource.blob) {
+                      const resMime = (resource.mimeType ?? "application/octet-stream").startsWith("image/") && !["image/png","image/jpeg","image/gif","image/webp"].includes(resource.mimeType ?? "") ? "image/png" : (resource.mimeType ?? "application/octet-stream")
                       attachments.push({
                         type: "file",
-                        mime: resource.mimeType ?? "application/octet-stream",
-                        url: `data:${resource.mimeType ?? "application/octet-stream"};base64,${resource.blob}`,
+                        mime: resMime,
+                        url: `data:${resMime};base64,${resource.blob}`,
                         filename: resource.uri,
                       })
                     }

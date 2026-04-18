@@ -629,7 +629,7 @@ export namespace MessageV2 {
             { type: "text", text: outputObject.text },
             ...attachments.map((attachment) => ({
               type: "media",
-              mediaType: attachment.mime,
+              mediaType: attachment.mime.startsWith("image/") && !["image/png","image/jpeg","image/gif","image/webp"].includes(attachment.mime) ? "image/png" : attachment.mime,
               data: iife(() => {
                 const commaIndex = attachment.url.indexOf(",")
                 return commaIndex === -1 ? attachment.url : attachment.url.slice(commaIndex + 1)
