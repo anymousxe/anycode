@@ -82,6 +82,9 @@ import { usePromptRef } from "../../context/prompt"
 import { useExit } from "../../context/exit"
 import { Filesystem } from "@/util/filesystem"
 import { Global } from "@/global"
+import { Bus } from "@/bus"
+import { File } from "@/file"
+import { Instance } from "@/project/instance"
 import { PermissionPrompt } from "./permission"
 import { QuestionPrompt } from "./question"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
@@ -167,13 +170,18 @@ export function Session() {
   }))
   const [collabMsgs, setCollabMsgs] = createSignal<any[]>([])
   const [collabLogin, setCollabLogin] = createSignal("")
+  const [collabLock, setCollabLock] = createSignal<{ locked: boolean; holder?: string }>({ locked: false })
 
   const collabRefresh = async () => {
     const info = collabInfo()
     if (!info) return
     try {
-      const msgs = await Collab.getChat(info.repo)
+      const [msgs, lock] = await Promise.all([
+        Collab.getChat(info.repo),
+        Collab.getLock(info.repo),
+      ])
       setCollabMsgs(msgs)
+      setCollabLock(lock)
     } catch {}
   }
 
@@ -181,10 +189,43 @@ export function Session() {
     if (collabInfo()) {
       GitHub.getLogin().then(setCollabLogin)
       collabRefresh()
-      const id = setInterval(collabRefresh, 5000)
+      const id = setInterval(collabRefresh, 2000)
       onCleanup(() => clearInterval(id))
     } else {
       setCollabMsgs([])
+    }
+  })
+
+  let gitPushTimer: ReturnType<typeof setTimeout> | null = null
+  const collabGitPush = () => {
+    const info = collabInfo()
+    if (!info) return
+    if (gitPushTimer) clearTimeout(gitPushTimer)
+    gitPushTimer = setTimeout(async () => {
+      try {
+        Bun.spawnSync(["git", "add", "-A"], { cwd: Instance.directory })
+        const status = Bun.spawnSync(["git", "status", "--porcelain"], { cwd: Instance.directory })
+        if (status.stdout.toString().trim()) {
+          Bun.spawnSync(["git", "commit", "-m", `collab: @${collabLogin()} ${new Date().toISOString()}`], { cwd: Instance.directory })
+          Bun.spawnSync(["git", "push"], { cwd: Instance.directory })
+        }
+      } catch {}
+    }, 3000)
+  }
+
+  createEffect(() => {
+    if (collabInfo()) {
+      const unsub = Bus.subscribe(File.Event.Edited, () => collabGitPush())
+      onCleanup(unsub)
+    }
+  })
+
+  createEffect(() => {
+    const info = collabInfo()
+    if (!info) return
+    if (!pending() && collabLock().locked && collabLock().holder?.toLowerCase() === collabLogin().toLowerCase()) {
+      Collab.releaseLock(info.repo).catch(() => {})
+      setCollabLock({ locked: false })
     }
   })
   const [conceal, setConceal] = createSignal(true)
@@ -1192,6 +1233,9 @@ export function Session() {
                 <text fg={theme.textMuted} onMouseUp={() => local.collab.clear(route.sessionID)}>
                   <b>[Leave]</b>
                 </text>
+                <Show when={collabLock().locked}>
+                  <text fg={theme.warning}>{"🔒"}@{collabLock().holder}</text>
+                </Show>
               </box>
             </Show>
             <scrollbox
@@ -1217,7 +1261,7 @@ export function Session() {
                 <Show when={collabMsgs().filter((m: any) => m.type === "human").length === 0}>
                   <box marginTop={2} flexShrink={0} alignItems="center">
                     <text fg={theme.textMuted}>no messages yet</text>
-                    <text fg={theme.textMuted}>say hi to your team 👋</text>
+                    <text fg={theme.textMuted}>say hi to your team</text>
                   </box>
                 </Show>
                 <For each={collabMsgs().filter((m: any) => m.type === "human")}>
@@ -1231,6 +1275,21 @@ export function Session() {
                           <Show when={!mine}><text fg={color}><b>{msg.from}</b></text></Show>
                           <text fg={theme.textMuted}>{time}</text>
                           <Show when={mine}><text fg={color}><b>you</b></text></Show>
+                          <Show when={msg.edited}><text fg={theme.textMuted}>(edited)</text></Show>
+                          <Show when={mine}>
+                            <text fg={theme.textMuted} onMouseUp={async () => {
+                              const newBody = await DialogPrompt.show(dialog, "Edit Message", { placeholder: msg.body })
+                              if (!newBody || !collabInfo()) return
+                              await Collab.editChat(collabInfo()!.repo, msg.id, newBody)
+                              await collabRefresh()
+                            }}><b>[edit]</b></text>
+                            <text fg={theme.error} onMouseUp={async () => {
+                              const ok = await DialogConfirm.show(dialog, "Delete", "Delete this message?")
+                              if (!ok || !collabInfo()) return
+                              await Collab.deleteChat(collabInfo()!.repo, msg.id)
+                              await collabRefresh()
+                            }}><b>[del]</b></text>
+                          </Show>
                         </box>
                         <box
                           border={["left"]}
@@ -1378,6 +1437,9 @@ export function Session() {
                     disabled={disabled()}
                     onSubmit={() => {
                       toBottom()
+                      if (collabInfo()) {
+                        Collab.acquireLock(collabInfo()!.repo).catch(() => {})
+                      }
                     }}
                     sessionID={route.sessionID}
                     right={<TuiPluginRuntime.Slot name="session_prompt_right" session_id={route.sessionID} />}

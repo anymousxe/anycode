@@ -255,10 +255,42 @@ export const Collab = {
     return collabApi(`/collab/ai-requests?repo=${encodeURIComponent(repo)}`)
   },
 
-  async respondAiRequest(repo: string, id: string, action: "accepted" | "declined"): Promise<any> {
-    return collabApi("/collab/ai-respond", {
-      method: "POST",
-      body: JSON.stringify({ repo, id, action }),
+  async deleteChat(repo: string, id: string): Promise<any> {
+    return collabApi("/collab/chat", {
+      method: "DELETE",
+      body: JSON.stringify({ repo, id }),
     })
+  },
+
+  async editChat(repo: string, id: string, body: string): Promise<any> {
+    return collabApi("/collab/chat", {
+      method: "PATCH",
+      body: JSON.stringify({ repo, id, body }),
+    })
+  },
+
+  async acquireLock(repo: string): Promise<{ ok: boolean; holder?: string }> {
+    try {
+      return await collabApi("/collab/lock", {
+        method: "POST",
+        body: JSON.stringify({ repo }),
+      })
+    } catch (e: any) {
+      if (e.message?.includes("423")) return { ok: false, holder: e.message.split("@")[1]?.split(")")[0] }
+      throw e
+    }
+  },
+
+  async releaseLock(repo: string): Promise<any> {
+    return collabApi("/collab/lock", {
+      method: "DELETE",
+      body: JSON.stringify({ repo }),
+    })
+  },
+
+  async getLock(repo: string): Promise<{ locked: boolean; holder?: string; acquiredAt?: number }> {
+    try {
+      return await collabApi(`/collab/lock?repo=${encodeURIComponent(repo)}`)
+    } catch { return { locked: false } }
   },
 }
