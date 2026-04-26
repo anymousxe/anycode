@@ -18,11 +18,34 @@ import { GitHub } from "@/collab"
 import fs from "fs"
 import path from "path"
 
+interface Folder {
+  id: string
+  name: string
+  sessions: string[]
+  collapsed: boolean
+}
+
 interface GitHubProfile {
   login: string
   avatar_url: string
   name: string | null
   bio: string | null
+}
+
+const FOLDERS_FILE = path.join(Global.Path.state, "chat-folders.json")
+
+function loadFolders(): Folder[] {
+  try {
+    const data = JSON.parse(fs.readFileSync(FOLDERS_FILE, "utf-8"))
+    if (Array.isArray(data)) return data
+  } catch {}
+  return []
+}
+
+function saveFolders(folders: Folder[]) {
+  try {
+    fs.writeFileSync(FOLDERS_FILE, JSON.stringify(folders, null, 2))
+  } catch {}
 }
 
 export function ChatNav() {
@@ -33,6 +56,8 @@ export function ChatNav() {
   const dialog = useDialog()
   const [collapsed, setCollapsed] = createSignal(false)
   const [visionFallback, setVisionFallback] = createSignal<string | null>(null)
+  const [folders, setFolders] = createSignal<Folder[]>(loadFolders())
+  const [showFolders, setShowFolders] = createSignal(true)
 
   const loadVisionFallback = () => {
     const configPath = path.join(Global.Path.config, "opencode.json")
@@ -377,8 +402,89 @@ export function ChatNav() {
       </text>
 
        <scrollbox flexGrow={1}>
-        <box gap={0}>
-          <For each={sessions()}>
+        <box gap={0} flexDirection="column">
+          <Show when={showFolders() && folders().length > 0}>
+            <For each={folders()}>
+              {(folder) => {
+                const folderSessions = createMemo(() =>
+                  sessions().filter((s) => folder.sessions.includes(s.id))
+                )
+                return (
+                  <box flexDirection="column" gap={0}>
+                    <box flexDirection="row" gap={1} paddingBottom={0}>
+                      <text
+                        fg={theme.primary}
+                        onMouseUp={() => {
+                          const updated = folders().map((f) =>
+                            f.id === folder.id ? { ...f, collapsed: !f.collapsed } : f
+                          )
+                          setFolders(updated)
+                          saveFolders(updated)
+                        }}
+                      >
+                        {folder.collapsed ? "▸" : "▾"} {folder.name}
+                      </text>
+                      <text fg={theme.textMuted}>({folderSessions().length})</text>
+                    </box>
+                    <Show when={!folder.collapsed}>
+                      <For each={folderSessions()}>
+                        {(s) => {
+                          const active = createMemo(() => s.id === currentSession())
+                          const title = s.title || "New chat"
+                          const trunc = title.length > 18 ? title.slice(0, 16) + ".." : title
+                          return (
+                            <box flexDirection="row" gap={1} paddingLeft={2} paddingBottom={0}>
+                              <text
+                                fg={active() ? theme.success : theme.textMuted}
+                                onMouseUp={() => switchTo(s.id)}
+                              >
+                                {active() ? "●" : "○"}
+                              </text>
+                              <text
+                                fg={active() ? theme.text : theme.textMuted}
+                                onMouseUp={() => switchTo(s.id)}
+                                flexGrow={1}
+                              >
+                                {trunc}
+                              </text>
+                              <Show when={active()}>
+                                <text fg={theme.textMuted} onMouseUp={() => rename(s.id)}>
+                                  ✎
+                                </text>
+                              </Show>
+                            </box>
+                          )
+                        }}
+                      </For>
+                    </Show>
+                  </box>
+                )
+              }}
+            </For>
+          </Show>
+
+          <Show when={sessions().length > 0}>
+            <box flexDirection="row" gap={1} paddingBottom={0} paddingTop={folders().length > 0 ? 1 : 0}>
+              <text fg={theme.textMuted}>{showFolders() && folders().length > 0 ? "Unsorted" : ""}</text>
+              <Show when={folders().length > 0}>
+                <text
+                  fg={theme.primary}
+                  onMouseUp={async () => {
+                    const name = await DialogPrompt.show(dialog, "New Folder", { placeholder: "Folder name..." })
+                    if (!name) return
+                    const newFolder: Folder = { id: crypto.randomUUID(), name, sessions: [], collapsed: false }
+                    const updated = [...folders(), newFolder]
+                    setFolders(updated)
+                    saveFolders(updated)
+                  }}
+                >
+                  +folder
+                </text>
+              </Show>
+            </box>
+          </Show>
+
+          <For each={sessions().filter((s) => !folders().some((f) => f.sessions.includes(s.id)))}>
             {(s) => {
               const active = createMemo(() => s.id === currentSession())
               const title = s.title || "New chat"
@@ -407,11 +513,42 @@ export function ChatNav() {
                     <text fg={theme.textMuted} onMouseUp={() => del(s.id)}>
                       ×
                     </text>
+                    <text
+                      fg={theme.textMuted}
+                      onMouseUp={async () => {
+                        if (folders().length === 0) {
+                          const name = await DialogPrompt.show(dialog, "New Folder", { placeholder: "Folder name..." })
+                          if (!name) return
+                          const newFolder: Folder = { id: crypto.randomUUID(), name, sessions: [s.id], collapsed: false }
+                          setFolders([newFolder])
+                          saveFolders([newFolder])
+                          return
+                        }
+                        const folderNames = folders().map((f) => f.name).join(", ")
+                        const result = await DialogPrompt.show(dialog, "Move to folder", { placeholder: `Available: ${folderNames}` })
+                        if (!result) return
+                        const folder = folders().find((f) => f.name.toLowerCase() === result.toLowerCase())
+                        if (!folder) {
+                          toast.show({ message: `Folder "${result}" not found`, variant: "error" })
+                          return
+                        }
+                        const updated = folders().map((f) =>
+                          f.id === folder.id
+                            ? { ...f, sessions: [...f.sessions, s.id] }
+                            : { ...f, sessions: f.sessions.filter((id) => id !== s.id) }
+                        )
+                        setFolders(updated)
+                        saveFolders(updated)
+                      }}
+                    >
+                      →
+                    </text>
                   </Show>
                 </box>
               )
             }}
           </For>
+
           <Show when={sessions().length === 0}>
             <text fg={theme.textMuted}>No chats yet</text>
           </Show>
