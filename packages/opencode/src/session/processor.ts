@@ -535,18 +535,25 @@ export namespace SessionProcessor {
           ctx.needsCompaction = false
           ctx.shouldBreak = (yield* config.get()).experimental?.continue_loop_on_deny !== true
 
-          return yield* Effect.gen(function* () {
-            yield* Effect.gen(function* () {
-              ctx.currentText = undefined
-              ctx.reasoningMap = {}
-              const stream = llm.stream(streamInput)
+            return yield* Effect.gen(function* () {
+              yield* Effect.gen(function* () {
+                ctx.currentText = undefined
+                ctx.reasoningMap = {}
+                const stream = llm.stream(streamInput)
 
-              yield* stream.pipe(
-                Stream.tap((event) => handleEvent(event)),
-                Stream.takeUntil(() => ctx.needsCompaction),
-                Stream.runDrain,
-              )
-            }).pipe(
+                yield* stream.pipe(
+                  Stream.tap((event) => handleEvent(event)),
+                  Stream.takeUntil(() => ctx.needsCompaction),
+                  Stream.runDrain,
+                  Effect.timeout("5 minutes"),
+                  Effect.catch(() =>
+                    Effect.gen(function* () {
+                      yield* slog.error("stream timeout", { sessionID: ctx.sessionID })
+                      yield* halt(new Error("Model stream timed out after 5 minutes. The API may be unresponsive."))
+                    }),
+                  ),
+                )
+              }).pipe(
               Effect.onInterrupt(() =>
                 Effect.gen(function* () {
                   aborted = true
