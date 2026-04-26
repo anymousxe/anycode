@@ -6,10 +6,6 @@ import { Provider } from "./provider"
 import { ModelsDev } from "./models"
 import { iife } from "@/util/iife"
 import { Flag } from "@/flag/flag"
-import { Config } from "@/config/config"
-import { Log } from "@/util/log"
-
-const log = Log.create({ service: "provider-transform" })
 
 type Modality = NonNullable<ModelsDev.Model["modalities"]>["input"][number]
 
@@ -241,28 +237,22 @@ export namespace ProviderTransform {
     return msgs
   }
 
-  async function unsupportedParts(msgs: ModelMessage[], model: Provider.Model): Promise<ModelMessage[]> {
-    const result: ModelMessage[] = []
-    for (const msg of msgs) {
-      if (msg.role !== "user" || !Array.isArray(msg.content)) {
-        result.push(msg)
-        continue
-      }
+  function unsupportedParts(msgs: ModelMessage[], model: Provider.Model): ModelMessage[] {
+    return msgs.map((msg) => {
+      if (msg.role !== "user" || !Array.isArray(msg.content)) return msg
 
-      const filtered = []
-      for (const part of msg.content) {
-        if (part.type !== "file" && part.type !== "image") {
-          filtered.push(part)
-          continue
-        }
+      const filtered = msg.content.map((part) => {
+        if (part.type !== "file" && part.type !== "image") return part
 
         if (part.type === "image") {
           const imageStr = part.image.toString()
           if (imageStr.startsWith("data:")) {
             const match = imageStr.match(/^data:([^;]+);base64,(.*)$/)
             if (match && (!match[2] || match[2].length === 0)) {
-              filtered.push({ type: "text" as const, text: "ERROR: Image file is empty or corrupted. Please provide a valid image." })
-              continue
+              return {
+                type: "text" as const,
+                text: "ERROR: Image file is empty or corrupted. Please provide a valid image.",
+              }
             }
           }
         }
@@ -270,76 +260,22 @@ export namespace ProviderTransform {
         const mime = part.type === "image" ? part.image.toString().split(";")[0].replace("data:", "") : part.mediaType
         const filename = part.type === "file" ? part.filename : undefined
         const modality = mimeToModality(mime)
-        if (!modality) { filtered.push(part); continue }
-        if (model.capabilities.input[modality]) { filtered.push(part); continue }
+        if (!modality) return part
+        if (model.capabilities.input[modality]) return part
 
         const name = filename ? `"${filename}"` : modality
-
-        if (modality === "image" && model.capabilities.input.image === false) {
-          const description = await describeImageWithFallback(part, filename)
-          if (description) {
-            filtered.push({
-              type: "text" as const,
-              text: `[User attached ${name}. Since this model cannot view images, here is a description from a vision model:\n${description}]`,
-            })
-            continue
-          }
-        }
-
-        filtered.push({
+        return {
           type: "text" as const,
           text: `[User attached ${name} but this model cannot view ${modality} input. Acknowledge that they attached it and explain you cannot see it.]`,
-        })
-      }
-
-      result.push({ ...msg, content: filtered })
-    }
-    return result
-  }
-
-  async function describeImageWithFallback(part: any, filename: string | undefined): Promise<string | null> {
-    try {
-      const cfg = await Config.get()
-      const fallbackStr = cfg.vision_fallback_model
-      if (!fallbackStr) return null
-
-      const parsed = Provider.parseModel(fallbackStr)
-      const resolved = await Provider.getModel(parsed.providerID, parsed.modelID)
-      if (!resolved.capabilities.input.image) return null
-
-      const language = await Provider.getLanguage(resolved)
-
-      let imageUrl: string
-      if (part.type === "file" && part.url) {
-        imageUrl = part.url
-      } else if (part.type === "image") {
-        const imgStr = part.image.toString()
-        imageUrl = imgStr.startsWith("data:") ? imgStr : `data:image/png;base64,${imgStr}`
-      } else {
-        return null
-      }
-
-      const { generateText } = await import("ai")
-      const result = await generateText({
-        model: language,
-        messages: [{
-          role: "user",
-          content: [
-            { type: "image", image: imageUrl },
-            { type: "text", text: "Describe this image concisely. Focus on what is visible: UI elements, code, text content, diagrams, errors, etc. Be specific and detailed enough that someone who cannot see the image could understand what it shows. Keep it under 200 words." },
-          ],
-        }],
+        }
       })
 
-      return result.text || null
-    } catch (e) {
-      log.error("vision fallback failed", { error: String(e) })
-      return null
-    }
+      return { ...msg, content: filtered }
+    })
   }
 
-  export async function message(msgs: ModelMessage[], model: Provider.Model, options: Record<string, unknown>) {
-    msgs = await unsupportedParts(msgs, model)
+  export function message(msgs: ModelMessage[], model: Provider.Model, options: Record<string, unknown>) {
+    msgs = unsupportedParts(msgs, model)
     msgs = normalizeMessages(msgs, model, options)
     if (
       (model.providerID === "anthropic" ||

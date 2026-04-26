@@ -272,18 +272,18 @@ export function Prompt(props: PromptProps) {
            }
            if (!props.sessionID) return
 
-           setStore("interrupt", store.interrupt + 1)
+            setStore("interrupt", store.interrupt + 1)
 
-           setTimeout(() => {
-             setStore("interrupt", 0)
-           }, 3000)
+            setTimeout(() => {
+              setStore("interrupt", 0)
+            }, 5000)
 
-           if (store.interrupt >= 1) {
-             sdk.client.session.abort({
-               sessionID: props.sessionID,
-             })
-             setStore("interrupt", 0)
-           }
+            if (store.interrupt >= 2) {
+              sdk.client.session.abort({
+                sessionID: props.sessionID,
+              })
+              setStore("interrupt", 0)
+            }
            dialog.clear()
         },
       },
