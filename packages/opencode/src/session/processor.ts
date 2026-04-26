@@ -545,13 +545,6 @@ export namespace SessionProcessor {
                   Stream.tap((event) => handleEvent(event)),
                   Stream.takeUntil(() => ctx.needsCompaction),
                   Stream.runDrain,
-                  Effect.timeout("5 minutes"),
-                  Effect.catch(() =>
-                    Effect.gen(function* () {
-                      yield* slog.error("stream timeout", { sessionID: ctx.sessionID })
-                      yield* halt(new Error("Model stream timed out after 5 minutes. The API may be unresponsive."))
-                    }),
-                  ),
                 )
               }).pipe(
               Effect.onInterrupt(() =>
