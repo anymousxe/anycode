@@ -326,8 +326,7 @@ export const ProvidersLoginCommand = cmd({
           "github-copilot": 2,
           google: 3,
           anthropic: 4,
-          openrouter: 5,
-          vercel: 6,
+          vercel: 5,
         }
         const pluginProviders = resolvePluginProviders({
           hooks: await Plugin.list(),

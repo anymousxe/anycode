@@ -33,7 +33,6 @@ import { createVertex } from "@ai-sdk/google-vertex"
 import { createVertexAnthropic } from "@ai-sdk/google-vertex/anthropic"
 import { createOpenAI } from "@ai-sdk/openai"
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
-import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { createOpenaiCompatible as createGitHubCopilotOpenAICompatible } from "./sdk/copilot"
 import { createXai } from "@ai-sdk/xai"
 import { createMistral } from "@ai-sdk/mistral"
@@ -134,7 +133,6 @@ export namespace Provider {
     "@ai-sdk/google-vertex/anthropic": createVertexAnthropic,
     "@ai-sdk/openai": createOpenAI,
     "@ai-sdk/openai-compatible": createOpenAICompatible,
-    "@openrouter/ai-sdk-provider": createOpenRouter,
     "@ai-sdk/xai": createXai,
     "@ai-sdk/mistral": createMistral,
     "@ai-sdk/groq": createGroq,
@@ -417,16 +415,6 @@ export namespace Provider {
           },
         }
       }),
-      openrouter: () =>
-        Effect.succeed({
-          autoload: false,
-          options: {
-            headers: {
-              "HTTP-Referer": "https://opencode.ai/",
-              "X-Title": "opencode",
-            },
-          },
-        }),
       vercel: () =>
         Effect.succeed({
           autoload: false,
@@ -1310,10 +1298,7 @@ export namespace Provider {
 
             for (const [modelID, model] of Object.entries(provider.models)) {
               model.api.id = model.api.id ?? model.id ?? modelID
-              if (
-                modelID === "gpt-5-chat-latest" ||
-                (providerID === ProviderID.openrouter && modelID === "openai/gpt-5-chat")
-              )
+              if (modelID === "gpt-5-chat-latest")
                 delete provider.models[modelID]
               if (model.status === "alpha" && !Flag.OPENCODE_ENABLE_EXPERIMENTAL_MODELS) delete provider.models[modelID]
               if (model.status === "deprecated") delete provider.models[modelID]

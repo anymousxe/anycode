@@ -1770,11 +1770,6 @@ describe("ProviderTransform.message - cache control on gateway", () => {
           type: "ephemeral",
         },
       },
-      openrouter: {
-        cacheControl: {
-          type: "ephemeral",
-        },
-      },
       bedrock: {
         cachePoint: {
           type: "default",
@@ -1818,11 +1813,6 @@ describe("ProviderTransform.message - cache control on gateway", () => {
 
     expect(result[0].providerOptions).toEqual({
       anthropic: {
-        cacheControl: {
-          type: "ephemeral",
-        },
-      },
-      openrouter: {
         cacheControl: {
           type: "ephemeral",
         },
@@ -1943,82 +1933,6 @@ describe("ProviderTransform.variants", () => {
     })
     const result = ProviderTransform.variants(model)
     expect(result).toEqual({})
-  })
-
-  describe("@openrouter/ai-sdk-provider", () => {
-    test("returns empty object for non-qualifying models", () => {
-      const model = createMockModel({
-        id: "openrouter/test-model",
-        providerID: "openrouter",
-        api: {
-          id: "test-model",
-          url: "https://openrouter.ai",
-          npm: "@openrouter/ai-sdk-provider",
-        },
-      })
-      const result = ProviderTransform.variants(model)
-      expect(result).toEqual({})
-    })
-
-    test("gpt models return OPENAI_EFFORTS with reasoning", () => {
-      const model = createMockModel({
-        id: "openrouter/gpt-4",
-        providerID: "openrouter",
-        api: {
-          id: "gpt-4",
-          url: "https://openrouter.ai",
-          npm: "@openrouter/ai-sdk-provider",
-        },
-      })
-      const result = ProviderTransform.variants(model)
-      expect(Object.keys(result)).toEqual(["none", "minimal", "low", "medium", "high", "xhigh"])
-      expect(result.low).toEqual({ reasoning: { effort: "low" } })
-      expect(result.high).toEqual({ reasoning: { effort: "high" } })
-    })
-
-    test("gemini-3 returns OPENAI_EFFORTS with reasoning", () => {
-      const model = createMockModel({
-        id: "openrouter/gemini-3-5-pro",
-        providerID: "openrouter",
-        api: {
-          id: "gemini-3-5-pro",
-          url: "https://openrouter.ai",
-          npm: "@openrouter/ai-sdk-provider",
-        },
-      })
-      const result = ProviderTransform.variants(model)
-      expect(Object.keys(result)).toEqual(["none", "minimal", "low", "medium", "high", "xhigh"])
-    })
-
-    test("grok-4 returns empty object", () => {
-      const model = createMockModel({
-        id: "openrouter/grok-4",
-        providerID: "openrouter",
-        api: {
-          id: "grok-4",
-          url: "https://openrouter.ai",
-          npm: "@openrouter/ai-sdk-provider",
-        },
-      })
-      const result = ProviderTransform.variants(model)
-      expect(result).toEqual({})
-    })
-
-    test("grok-3-mini returns low and high with reasoning", () => {
-      const model = createMockModel({
-        id: "openrouter/grok-3-mini",
-        providerID: "openrouter",
-        api: {
-          id: "grok-3-mini",
-          url: "https://openrouter.ai",
-          npm: "@openrouter/ai-sdk-provider",
-        },
-      })
-      const result = ProviderTransform.variants(model)
-      expect(Object.keys(result)).toEqual(["low", "high"])
-      expect(result.low).toEqual({ reasoning: { effort: "low" } })
-      expect(result.high).toEqual({ reasoning: { effort: "high" } })
-    })
   })
 
   describe("@ai-sdk/gateway", () => {

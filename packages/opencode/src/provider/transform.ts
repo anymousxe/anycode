@@ -1,4 +1,5 @@
-import type { ModelMessage } from "ai"
+import type { ModelMessage, generateText as generateTextType } from "ai"
+import { generateText } from "ai"
 import { mergeDeep, unique } from "remeda"
 import type { JSONSchema7 } from "@ai-sdk/provider"
 import type { JSONSchema } from "zod/v4/core"
@@ -20,6 +21,24 @@ function mimeToModality(mime: string): Modality | undefined {
 export namespace ProviderTransform {
   export const OUTPUT_TOKEN_MAX = Flag.OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX || 32_000
 
+  export async function describeImage(model: Provider.Model, mime: string, base64: string): Promise<string> {
+    const language = await Provider.getLanguage(model)
+    const result = await generateText({
+      model: language,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Describe this image in detail. Include any text, objects, people, colors, layout, and notable features." },
+            { type: "image", image: `data:${mime};base64,${base64}` },
+          ],
+        },
+      ],
+      maxOutputTokens: 500,
+    })
+    return result.text
+  }
+
   // Maps npm package to the key the AI SDK expects for providerOptions
   function sdkKey(npm: string): string | undefined {
     switch (npm) {
@@ -40,8 +59,6 @@ export namespace ProviderTransform {
         return "google"
       case "@ai-sdk/gateway":
         return "gateway"
-      case "@openrouter/ai-sdk-provider":
-        return "openrouter"
     }
     return undefined
   }
@@ -197,9 +214,6 @@ export namespace ProviderTransform {
       anthropic: {
         cacheControl: { type: "ephemeral" },
       },
-      openrouter: {
-        cacheControl: { type: "ephemeral" },
-      },
       bedrock: {
         cachePoint: { type: "default" },
       },
@@ -262,6 +276,14 @@ export namespace ProviderTransform {
         const modality = mimeToModality(mime)
         if (!modality) return part
         if (model.capabilities.input[modality]) return part
+
+        if (part.type === "file" && (part as any).description) {
+          const name = filename ? `"${filename}"` : modality
+          return {
+            type: "text" as const,
+            text: `[Image ${name} description: ${(part as any).description}]`,
+          }
+        }
 
         const name = filename ? `"${filename}"` : modality
         return {
@@ -364,7 +386,7 @@ export namespace ProviderTransform {
     if (!model.capabilities.reasoning) return {}
 
     const id = model.id.toLowerCase()
-    const isAnthropicAdaptive = ["opus-4-6", "opus-4.6", "sonnet-4-6", "sonnet-4.6"].some((v) =>
+    const isAnthropicAdaptive = ["opus-4-6", "opus-4.6", "opus-4-7", "opus-4.7", "sonnet-4-6", "sonnet-4.6", "sonnet-4-7", "sonnet-4.7"].some((v) =>
       model.api.id.includes(v),
     )
     const adaptiveEfforts = ["low", "medium", "high", "max"]
@@ -382,12 +404,6 @@ export namespace ProviderTransform {
 
     // see: https://docs.x.ai/docs/guides/reasoning#control-how-hard-the-model-thinks
     if (id.includes("grok") && id.includes("grok-3-mini")) {
-      if (model.api.npm === "@openrouter/ai-sdk-provider") {
-        return {
-          low: { reasoning: { effort: "low" } },
-          high: { reasoning: { effort: "high" } },
-        }
-      }
       return {
         low: { reasoningEffort: "low" },
         high: { reasoningEffort: "high" },
@@ -396,10 +412,6 @@ export namespace ProviderTransform {
     if (id.includes("grok")) return {}
 
     switch (model.api.npm) {
-      case "@openrouter/ai-sdk-provider":
-        if (!model.id.includes("gpt") && !model.id.includes("gemini-3") && !model.id.includes("claude")) return {}
-        return Object.fromEntries(OPENAI_EFFORTS.map((effort) => [effort, { reasoning: { effort } }]))
-
       case "@ai-sdk/gateway":
         if (model.id.includes("anthropic")) {
           if (isAnthropicAdaptive) {
@@ -415,20 +427,17 @@ export namespace ProviderTransform {
               ]),
             )
           }
-          return {
-            high: {
-              thinking: {
-                type: "enabled",
-                budgetTokens: 16000,
+          return Object.fromEntries(
+            adaptiveEfforts.map((effort) => [
+              effort,
+              {
+                thinking: {
+                  type: "adaptive",
+                },
+                effort,
               },
-            },
-            max: {
-              thinking: {
-                type: "enabled",
-                budgetTokens: 31999,
-              },
-            },
-          }
+            ]),
+          )
         }
         if (model.id.includes("google")) {
           if (id.includes("2.5")) {
@@ -565,20 +574,17 @@ export namespace ProviderTransform {
           )
         }
 
-        return {
-          high: {
-            thinking: {
-              type: "enabled",
-              budgetTokens: Math.min(16_000, Math.floor(model.limit.output / 2 - 1)),
+        return Object.fromEntries(
+          adaptiveEfforts.map((effort) => [
+            effort,
+            {
+              thinking: {
+                type: "adaptive",
+              },
+              effort,
             },
-          },
-          max: {
-            thinking: {
-              type: "enabled",
-              budgetTokens: Math.min(31_999, model.limit.output - 1),
-            },
-          },
-        }
+          ]),
+        )
 
       case "@ai-sdk/amazon-bedrock":
         // https://v5.ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock
@@ -595,22 +601,19 @@ export namespace ProviderTransform {
             ]),
           )
         }
-        // For Anthropic models on Bedrock, use reasoningConfig with budgetTokens
+        // For Anthropic models on Bedrock, use reasoningConfig with adaptive
         if (model.api.id.includes("anthropic")) {
-          return {
-            high: {
-              reasoningConfig: {
-                type: "enabled",
-                budgetTokens: 16000,
+          return Object.fromEntries(
+            adaptiveEfforts.map((effort) => [
+              effort,
+              {
+                reasoningConfig: {
+                  type: "adaptive",
+                  maxReasoningEffort: effort,
+                },
               },
-            },
-            max: {
-              reasoningConfig: {
-                type: "enabled",
-                budgetTokens: 31999,
-              },
-            },
-          }
+            ]),
+          )
         }
 
         // For Amazon Nova models, use reasoningConfig with maxReasoningEffort
@@ -702,20 +705,17 @@ export namespace ProviderTransform {
               ]),
             )
           }
-          return {
-            high: {
-              thinking: {
-                type: "enabled",
-                budgetTokens: 16000,
+          return Object.fromEntries(
+            adaptiveEfforts.map((effort) => [
+              effort,
+              {
+                thinking: {
+                  type: "adaptive",
+                },
+                effort,
               },
-            },
-            max: {
-              thinking: {
-                type: "enabled",
-                budgetTokens: 31999,
-              },
-            },
-          }
+            ]),
+          )
         }
         if (model.api.id.includes("gemini") && id.includes("2.5")) {
           return {
@@ -757,15 +757,6 @@ export namespace ProviderTransform {
       result["store"] = false
     }
 
-    if (input.model.api.npm === "@openrouter/ai-sdk-provider") {
-      result["usage"] = {
-        include: true,
-      }
-      if (input.model.api.id.includes("gemini-3")) {
-        result["reasoning"] = { effort: "high" }
-      }
-    }
-
     if (
       input.model.providerID === "baseten" ||
       (input.model.providerID === "opencode" && ["kimi-k2-thinking", "glm-4.6"].includes(input.model.api.id))
@@ -802,9 +793,9 @@ export namespace ProviderTransform {
       (modelId.includes("k2p5") || modelId.includes("kimi-k2.5") || modelId.includes("kimi-k2p5"))
     ) {
       result["thinking"] = {
-        type: "enabled",
-        budgetTokens: Math.min(16_000, Math.floor(input.model.limit.output / 2 - 1)),
+        type: "adaptive",
       }
+      result["effort"] = "high"
     }
 
     // Enable thinking for reasoning models on alibaba-cn (DashScope).
@@ -849,9 +840,6 @@ export namespace ProviderTransform {
       result["promptCacheKey"] = input.sessionID
     }
 
-    if (input.model.providerID === "openrouter") {
-      result["prompt_cache_key"] = input.sessionID
-    }
     if (input.model.api.npm === "@ai-sdk/gateway") {
       result["gateway"] = {
         caching: "auto",
@@ -882,13 +870,6 @@ export namespace ProviderTransform {
       }
       return { thinkingConfig: { thinkingBudget: 0 } }
     }
-    if (model.providerID === "openrouter") {
-      if (model.api.id.includes("google")) {
-        return { reasoning: { enabled: false } }
-      }
-      return { reasoningEffort: "minimal" }
-    }
-
     if (model.providerID === "venice") {
       return { veniceParameters: { disableThinking: true } }
     }

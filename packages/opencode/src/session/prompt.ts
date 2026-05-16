@@ -31,6 +31,7 @@ import * as Stream from "effect/Stream"
 import { Command } from "../command"
 import { pathToFileURL, fileURLToPath } from "url"
 import { ConfigMarkdown } from "../config/markdown"
+import { Config } from "../config/config"
 import { SessionSummary } from "./summary"
 import { NamedError } from "@opencode-ai/util/error"
 import { SessionProcessor } from "./processor"
@@ -925,10 +926,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
 
         const model = input.model ?? ag.model ?? (yield* lastModel(input.sessionID))
         const same = ag.model && model.providerID === ag.model.providerID && model.modelID === ag.model.modelID
-        const full =
-          !input.variant && ag.variant && same
-            ? yield* provider.getModel(model.providerID, model.modelID).pipe(Effect.catchDefect(() => Effect.void))
-            : undefined
+        const full = yield* provider.getModel(model.providerID, model.modelID).pipe(Effect.catchDefect(() => Effect.void))
         const variant = input.variant ?? (ag.variant && full?.variants?.[ag.variant] ? ag.variant : undefined)
 
         const info: MessageV2.User = {
@@ -1225,6 +1223,36 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         const parts = yield* Effect.forEach(input.parts, resolvePart, { concurrency: "unbounded" }).pipe(
           Effect.map((x) => x.flat().map(assign)),
         )
+
+        if (full && !full.capabilities.input.image) {
+          const cfg = yield* Effect.promise(() => Config.get())
+          const fallbackId = cfg.vision_fallback_model
+          if (fallbackId) {
+            const [fallbackProviderId, fallbackModelId] = fallbackId.split("/")
+            if (fallbackProviderId && fallbackModelId) {
+              const fallbackModel = yield* provider.getModel(fallbackProviderId as ProviderID, fallbackModelId as ModelID).pipe(
+                Effect.catchDefect(() => Effect.void),
+              )
+              if (fallbackModel) {
+                for (const part of parts) {
+                  if (part.type === "file" && part.mime.startsWith("image/") && !part.description && part.url.startsWith("data:")) {
+                    const match = part.url.match(/^data:([^;]+);base64,(.*)$/)
+                    if (match && match[2]) {
+                      const exit = yield* Effect.promise(() =>
+                        ProviderTransform.describeImage(fallbackModel, match[1], match[2])
+                      ).pipe(Effect.exit)
+                      if (Exit.isSuccess(exit)) {
+                        part.description = exit.value
+                      } else {
+                        log.error("vision fallback failed", { error: Cause.squash(exit.cause) })
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
 
         yield* plugin.trigger(
           "chat.message",

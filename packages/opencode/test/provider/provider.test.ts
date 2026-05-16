@@ -370,8 +370,8 @@ test("parseModel correctly parses provider/model string", () => {
 })
 
 test("parseModel handles model IDs with slashes", () => {
-  const result = Provider.parseModel("openrouter/anthropic/claude-3-opus")
-  expect(String(result.providerID)).toBe("openrouter")
+  const result = Provider.parseModel("custom/anthropic/claude-3-opus")
+  expect(String(result.providerID)).toBe("custom")
   expect(String(result.modelID)).toBe("anthropic/claude-3-opus")
 })
 
@@ -1788,11 +1788,10 @@ test("custom model inherits api.url from models.dev provider", async () => {
         JSON.stringify({
           $schema: "https://opencode.ai/config.json",
           provider: {
-            openrouter: {
+            groq: {
               models: {
-                "prime-intellect/intellect-3": {},
-                "deepseek/deepseek-r1-0528": {
-                  name: "DeepSeek R1",
+                "llama-3.3-70b-versatile": {
+                  name: "Llama 3.3 70B",
                 },
               },
             },
@@ -1804,22 +1803,16 @@ test("custom model inherits api.url from models.dev provider", async () => {
   await Instance.provide({
     directory: tmp.path,
     init: async () => {
-      Env.set("OPENROUTER_API_KEY", "test-api-key")
+      Env.set("GROQ_API_KEY", "test-api-key")
     },
     fn: async () => {
       const providers = await Provider.list()
-      expect(providers[ProviderID.openrouter]).toBeDefined()
+      expect(providers[ProviderID.make("groq")]).toBeDefined()
 
-      // New model not in database should inherit api.url from provider
-      const intellect = providers[ProviderID.openrouter].models["prime-intellect/intellect-3"]
-      expect(intellect).toBeDefined()
-      expect(intellect.api.url).toBe("https://openrouter.ai/api/v1")
-
-      // Another new model should also inherit api.url
-      const deepseek = providers[ProviderID.openrouter].models["deepseek/deepseek-r1-0528"]
-      expect(deepseek).toBeDefined()
-      expect(deepseek.api.url).toBe("https://openrouter.ai/api/v1")
-      expect(deepseek.name).toBe("DeepSeek R1")
+      const llama = providers[ProviderID.make("groq")].models["llama-3.3-70b-versatile"]
+      expect(llama).toBeDefined()
+      expect(llama.api.url).toBe("https://api.groq.com/openai/v1")
+      expect(llama.name).toBe("Llama 3.3 70B")
     },
   })
 })

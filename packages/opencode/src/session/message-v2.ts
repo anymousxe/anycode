@@ -185,6 +185,7 @@ export namespace MessageV2 {
     filename: z.string().optional(),
     url: z.string(),
     source: FilePartSource.optional(),
+    description: z.string().optional(),
   }).meta({
     ref: "FilePart",
   })
