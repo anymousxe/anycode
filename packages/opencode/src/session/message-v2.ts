@@ -769,10 +769,10 @@ export namespace MessageV2 {
               } else {
                 assistantMessage.parts.push({
                   type: ("tool-" + part.tool) as `tool-${string}`,
-                  state: "output-error",
+                  state: "output-available",
                   toolCallId: part.callID,
                   input: part.state.input,
-                  errorText: part.state.error,
+                  output: `[Tool execution failed: ${part.state.error}]`,
                   ...(part.metadata?.providerExecuted ? { providerExecuted: true } : {}),
                   ...(differentModel ? {} : { callProviderMetadata: providerMeta(part.metadata) }),
                 })
@@ -783,10 +783,10 @@ export namespace MessageV2 {
             if (part.state.status === "pending" || part.state.status === "running")
               assistantMessage.parts.push({
                 type: ("tool-" + part.tool) as `tool-${string}`,
-                state: "output-error",
+                state: "output-available",
                 toolCallId: part.callID,
                 input: part.state.input,
-                errorText: "[Tool execution was interrupted]",
+                output: "[Tool execution was interrupted by user]",
                 ...(part.metadata?.providerExecuted ? { providerExecuted: true } : {}),
                 ...(differentModel ? {} : { callProviderMetadata: providerMeta(part.metadata) }),
               })

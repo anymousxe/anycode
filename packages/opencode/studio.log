@@ -1,0 +1,6 @@
+$ bun drizzle-kit studio --port "5000"
+No config path provided, using default 'drizzle.config.ts'
+Reading config file 'C:\Users\aiden\anycode-src\packages\opencode\drizzle.config.ts'
+Using 'node:sqlite' driver for database querying
+Error  unable to open database file
+error: script "db" exited with code 1
