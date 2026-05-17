@@ -1030,6 +1030,31 @@ export namespace Provider {
           const modelsDev = yield* Effect.promise(() => ModelsDev.get())
           const database = mapValues(modelsDev, fromModelsDevProvider)
 
+          if (database["google"]) {
+            database["google"].models["gemini-3.5-flash-preview"] = {
+              id: ModelID.make("gemini-3.5-flash-preview"),
+              providerID: ProviderID.make("google"),
+              api: { id: "gemini-3.1-pro-preview", npm: "@ai-sdk/google", url: "" },
+              name: "Gemini 3.5 Flash Preview",
+              family: "gemini-flash",
+              capabilities: {
+                temperature: true,
+                reasoning: true,
+                attachment: true,
+                toolcall: true,
+                interleaved: false,
+                input: { text: true, audio: true, image: true, video: true, pdf: true }, 
+                output: { text: true, audio: false, image: false, video: false, pdf: false } 
+              },
+              cost: { input: 2, output: 12, cache: { read: 0.2, write: 0 } },
+              limit: { context: 1048576, output: 65536 },
+              status: "active",
+              options: {},
+              headers: {},
+              release_date: "2026-05-16",
+            }
+          }
+
           const providers: Record<ProviderID, Info> = {} as Record<ProviderID, Info>
           const languages = new Map<string, LanguageModelV3>()
           const modelLoaders: {

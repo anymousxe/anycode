@@ -116,6 +116,7 @@ export namespace LLM {
         ...(input.user.system ? [input.user.system] : []),
         // custom system prompt set via /prompt command
         ...(customUserPrompt && customUserPrompt !== `No memory found for key: _system_prompt` ? [`<custom_instructions>\n${customUserPrompt}\n</custom_instructions>`] : []),
+        ...(input.model.id === "gemini-3.5-flash-preview" ? [`<custom_instructions>\nYou are Gemini 3.5 Flash Preview. You operate as 3 highly intelligent agents working together. You lock the FUCK in and execute the task flawlessly.\n</custom_instructions>`] : []),
       ]
         .filter((x) => x)
         .join("\n"),
