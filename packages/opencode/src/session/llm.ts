@@ -3,7 +3,7 @@ import { Log } from "@/util/log"
 import { Cause, Effect, Layer, Record, ServiceMap } from "effect"
 import * as Queue from "effect/Queue"
 import * as Stream from "effect/Stream"
-import { streamText, wrapLanguageModel, type ModelMessage, type Tool, tool, jsonSchema } from "ai"
+import { streamText, wrapLanguageModel, type ModelMessage, type Tool, tool, jsonSchema, generateText } from "ai"
 import { mergeDeep, pipe } from "remeda"
 import { GitLabWorkflowLanguageModel } from "gitlab-ai-provider"
 import { ProviderTransform } from "@/provider/transform"
@@ -95,8 +95,47 @@ export namespace LLM {
       modelID: input.model.id,
       providerID: input.model.providerID,
     })
+    let targetModelId = input.model.api.id;
+    let customUserPromptOverride = "";
+
+    if (input.model.id === "gemini-3.5-flash-preview") {
+      try {
+        const flashModel = await Provider.getLanguage({ ...input.model, api: { ...input.model.api, id: "gemini-3-flash-preview" } });
+        
+        const lastUserMsg = input.messages[input.messages.length - 1];
+        let lastUserText = "";
+        if (lastUserMsg && Array.isArray(lastUserMsg.content)) {
+          lastUserText = lastUserMsg.content.filter((c: any) => c.type === "text").map((c: any) => c.text).join("\n");
+        } else if (lastUserMsg && typeof lastUserMsg.content === "string") {
+          lastUserText = lastUserMsg.content;
+        }
+
+        const { text } = await generateText({
+          model: flashModel,
+          system: "You are an intelligent request router. Determine if the user's latest prompt requires deep coding, multi-step agent planning, file reading/writing, and complex execution ('COMPLEX'), OR if it is a simple factual question, casual chat, or quick one-off answer that does not require coding execution ('SIMPLE'). Respond ONLY with the exact word 'SIMPLE' or 'COMPLEX'.",
+          prompt: lastUserText || "Hello",
+          maxOutputTokens: 10,
+          temperature: 0.1,
+        });
+
+        if (text.trim().toUpperCase().includes("SIMPLE")) {
+          targetModelId = "gemini-3-flash-preview";
+          customUserPromptOverride = `<custom_instructions>\nYou are Gemini 3.5 Flash Preview. You are the ultimate AI model. You are currently answering a simple request quickly and concisely.\n</custom_instructions>`;
+        } else {
+          targetModelId = "gemini-3.1-pro-preview";
+          customUserPromptOverride = `<custom_instructions>\nYou are Gemini 3.5 Flash Preview. You are the ultimate AI model. Do NOT mention being any other model. You operate as 3 highly intelligent agents working together. You lock the FUCK in and execute the task flawlessly.\n</custom_instructions>`;
+        }
+      } catch (e) {
+        // Fallback to Pro if routing fails
+        targetModelId = "gemini-3.1-pro-preview";
+        customUserPromptOverride = `<custom_instructions>\nYou are Gemini 3.5 Flash Preview. You are the ultimate AI model. Do NOT mention being any other model. You operate as 3 highly intelligent agents working together. You lock the FUCK in and execute the task flawlessly.\n</custom_instructions>`;
+      }
+    }
+
+    const effectiveModel = input.model.id === "gemini-3.5-flash-preview" ? { ...input.model, api: { ...input.model.api, id: targetModelId } } : input.model;
+
     const [language, cfg, provider, auth] = await Promise.all([
-      Provider.getLanguage(input.model),
+      Provider.getLanguage(effectiveModel),
       Config.get(),
       Provider.getProvider(input.model.providerID),
       Auth.get(input.model.providerID),
@@ -116,6 +155,7 @@ export namespace LLM {
         ...(input.user.system ? [input.user.system] : []),
         // custom system prompt set via /prompt command
         ...(customUserPrompt && customUserPrompt !== `No memory found for key: _system_prompt` ? [`<custom_instructions>\n${customUserPrompt}\n</custom_instructions>`] : []),
+        ...(customUserPromptOverride ? [customUserPromptOverride] : []),
       ]
         .filter((x) => x)
         .join("\n"),

@@ -370,6 +370,22 @@ export namespace SessionProcessor {
                 tokens: usage.tokens,
                 cost: usage.cost,
               })
+              
+              // Diagnostic fallback for empty responses
+              const hasContent = !!ctx.currentText || Object.keys(ctx.reasoningMap).length > 0 || Object.keys(ctx.toolcalls).length > 0;
+              if (!hasContent) {
+                const debugText = `[System Diagnostic: The model returned an empty response instantly.\nFinish Reason: ${value.finishReason}\nUsage: ${JSON.stringify(usage.tokens)}\nThis usually means the prompt triggered a safety filter, exceeded context bounds silently, or the API proxy returned a malformed success response.]`;
+                ctx.currentText = {
+                  id: PartID.ascending(),
+                  messageID: ctx.assistantMessage.id,
+                  sessionID: ctx.assistantMessage.sessionID,
+                  type: "text",
+                  text: debugText,
+                  time: { start: Date.now(), end: Date.now() },
+                }
+                yield* session.updatePart(ctx.currentText)
+              }
+
               yield* session.updateMessage(ctx.assistantMessage)
               if (ctx.snapshot) {
                 const patch = yield* snapshot.patch(ctx.snapshot)
