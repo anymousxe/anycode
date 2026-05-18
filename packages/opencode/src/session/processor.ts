@@ -253,27 +253,29 @@ export namespace SessionProcessor {
               delete ctx.reasoningMap[value.id]
               return
 
-            case "tool-input-start":
+            case "tool-input-start": {
               if (ctx.assistantMessage.summary) {
                 throw new Error(`Tool call not allowed while generating summary: ${value.toolName}`)
               }
+              const callID = (value as any).toolCallId ?? value.id;
               const part = yield* session.updatePart({
-                id: ctx.toolcalls[value.id]?.partID ?? PartID.ascending(),
+                id: ctx.toolcalls[callID]?.partID ?? PartID.ascending(),
                 messageID: ctx.assistantMessage.id,
                 sessionID: ctx.assistantMessage.sessionID,
                 type: "tool",
                 tool: value.toolName,
-                callID: value.id,
+                callID: callID,
                 state: { status: "pending", input: {}, raw: "" },
                 metadata: value.providerExecuted ? { providerExecuted: true } : undefined,
               } satisfies MessageV2.ToolPart)
-              ctx.toolcalls[value.id] = {
+              ctx.toolcalls[callID] = {
                 done: yield* Deferred.make<void>(),
                 partID: part.id,
                 messageID: part.messageID,
                 sessionID: part.sessionID,
               }
               return
+            }
 
             case "tool-input-delta":
               return
