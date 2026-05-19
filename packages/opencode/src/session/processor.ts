@@ -211,8 +211,6 @@ export namespace SessionProcessor {
           return true
         })
 
-        let hasGeneratedContent = false
-
         const handleEvent = Effect.fn("SessionProcessor.handleEvent")(function* (value: StreamEvent) {
           switch (value.type) {
             case "start":
@@ -220,7 +218,6 @@ export namespace SessionProcessor {
               return
 
             case "reasoning-start":
-              hasGeneratedContent = true
               if (value.id in ctx.reasoningMap) return
               ctx.reasoningMap[value.id] = {
                 id: PartID.ascending(),
@@ -257,7 +254,6 @@ export namespace SessionProcessor {
               return
 
             case "tool-input-start": {
-              hasGeneratedContent = true
               if (ctx.assistantMessage.summary) {
                 throw new Error(`Tool call not allowed while generating summary: ${value.toolName}`)
               }
@@ -376,20 +372,6 @@ export namespace SessionProcessor {
                 tokens: usage.tokens,
                 cost: usage.cost,
               })
-              
-              // Diagnostic fallback for empty responses
-              if (!hasGeneratedContent) {
-                const debugText = `[System Diagnostic: The model returned an empty response instantly.\nFinish Reason: ${value.finishReason}\nUsage: ${JSON.stringify(usage.tokens)}\nThis usually means the prompt triggered a safety filter, exceeded context bounds silently, or the API proxy returned a malformed success response.]`;
-                ctx.currentText = {
-                  id: PartID.ascending(),
-                  messageID: ctx.assistantMessage.id,
-                  sessionID: ctx.assistantMessage.sessionID,
-                  type: "text",
-                  text: debugText,
-                  time: { start: Date.now(), end: Date.now() },
-                }
-                yield* session.updatePart(ctx.currentText)
-              }
 
               yield* session.updateMessage(ctx.assistantMessage)
               if (ctx.snapshot) {
@@ -420,7 +402,6 @@ export namespace SessionProcessor {
             }
 
             case "text-start":
-              hasGeneratedContent = true
               ctx.currentText = {
                 id: PartID.ascending(),
                 messageID: ctx.assistantMessage.id,
